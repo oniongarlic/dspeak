@@ -1,0 +1,14 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+datarootdir=@datarootdir@
+datadir=@datadir@
+
+Name: dspeak
+Description: speach service
+Requires: glib-2.0
+Version: @VERSION@
+Libs: -L${libdir}
+Cflags: -I${includedir}
+
