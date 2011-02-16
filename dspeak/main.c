@@ -24,7 +24,7 @@ g_type_init();
 
 mainloop=g_main_loop_new(NULL, FALSE);
 
-conn=dbus_g_bus_get(GEOCLUE_DBUS_BUS, &error);
+conn=dbus_g_bus_get(DBUS_BUS_SESSION, &error);
 if (!conn) {
 	g_error("Error getting bus: %s", error->message);
 	return 1;
