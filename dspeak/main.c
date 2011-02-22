@@ -8,7 +8,10 @@
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-bindings.h>
 
-#define DSPEAK_NAME "org.tal.dspeak"
+#include "gdspeak.h"
+
+#define DSPEAK_NAME "org.tal.gdspeak"
+#define DSPEAK_PATH "/org/tal/gdspeak"
 
 gint
 main(gint argc, gchar **argv)
@@ -17,7 +20,7 @@ DBusGConnection *conn;
 DBusGProxy *proxy;
 GError *error=NULL;
 GMainLoop *mainloop;
-Dspeak *ds;
+Gdspeak *ds;
 guint32 rname;
 
 g_type_init();
@@ -37,11 +40,11 @@ if (!org_freedesktop_DBus_request_name(proxy, DSPEAK_NAME, 0, &rname, &error)) {
 	return 1;
 }
 
-if (request_name_ret != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
+if (rname != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
 	return 1;
 
-ds=g_object_new(DSPEAK_TYPE, NULL);
-dbus_g_connection_register_g_object(conn, "/org/tal/dspeak", G_OBJECT(ds));
+ds=gdspeak_new();
+dbus_g_connection_register_g_object(conn, DSPEAK_PATH, G_OBJECT(ds));
 
 g_main_loop_run(mainloop);
 return 0;

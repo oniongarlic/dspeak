@@ -23,9 +23,8 @@
 
 #include <glib.h>
 
-gboolean speak_init(gchar *voice, guint speed, guint pitch);
+gboolean speak_init(gchar *voice);
 void speak_deinit(void);
-void speak_set_parameters(guint speed, guint pitch);
 
 gboolean speak_text(const gchar *text);
 gboolean speak_stop(void);

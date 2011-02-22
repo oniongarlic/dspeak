@@ -27,15 +27,8 @@
 
 #include "speak.h"
 
-void
-speak_set_parameters(guint speed, guint pitch)
-{
-espeak_SetParameter(espeakRATE, speed, 0);
-espeak_SetParameter(espeakPITCH, pitch, 0);
-}
-
 gboolean
-speak_init(gchar *voice, guint speed, guint pitch)
+speak_init(gchar *voice)
 {
 gint r;
 r=espeak_Initialize(AUDIO_OUTPUT_PLAYBACK, 250, NULL, 0);
@@ -43,8 +36,6 @@ if (r==-1)
 	return FALSE;
 
 espeak_SetVoiceByName(voice);
-speak_set_parameters(speed, pitch);
-espeak_SetParameter(espeakVOLUME, 100, 0);
 return TRUE;
 }
 

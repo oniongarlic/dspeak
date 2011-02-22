@@ -1,8 +1,20 @@
 INCLUDES = -DDATADIR=\""$(datadir)"\" -DDBUS_API_SUBJECT_TO_CHANGE
 
+lib_LTLIBRARIES = libgdspeak.la
+
+libgdspeak_la_SOURCES = speak.c speak.h gdspeak.c gdspeak.h
+libgdspeak_la_CFLAGS = $(ESPEAK_CFLAGS) $(GLIB_CFLAGS) $(defines)
+libgdspeak_la_LIBADD = $(ESPEAK_LIBS) $(GLIB_LIBS)
+libgdspeak_la_LDFLAGS = -lm -no-undefined -version-info 0:0:0
+
 libexec_PROGRAMS=dspeak
 
 dspeak_CFLAGS = $(GLIB_CFLAGS) $(ESPEAK_CFLAGS)
-dspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS)
+dspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) libgdspeak.la
 
-dspeak_SOURCES=main.c speak.c speak.h
+dspeak_SOURCES=main.c dspeak-server-glue.h
+
+BUILT_SOURCES =	dspeak-server-glue.h
+
+dspeak-server-glue.h: dspeak-server.xml
+	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak dspeak-server.xml > dspeak-server-glue.h

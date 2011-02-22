@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<node name="/org/tal/gdspeak">
+  <interface name="org.tal.gdspeak">
+    <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="gdspeak"/>
+    <method name="Speak">
+    	<arg type="s" name="txt" direction="in" />
+		<arg type="b" direction="out" >
+    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+  		</arg>
+    </method>
+    <method name="SpeakPriority">
+    	<arg type="u" name="priority" direction="in" />
+    	<arg type="s" name="txt" direction="in" />
+		<arg type="b" direction="out" >
+    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+  		</arg>
+    </method>
+  </interface>
+</node>
