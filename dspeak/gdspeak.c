@@ -69,6 +69,8 @@ Gdspeak *go=GDSPEAK(object);
 
 g_return_if_fail(go);
 G_OBJECT_CLASS(gdspeak_parent_class)->finalize(object);
+
+speak_deinit();
 }
 
 static void
@@ -197,7 +199,7 @@ gdspeak_speak_priority(Gdspeak *gs, guint priority, const gchar *txt)
 gchar *st;
 GdspeakPrivate *p=GET_PRIVATE(gs);
 
-g_return_if_fail(gs, FALSE);
+g_return_val_if_fail(gs, FALSE);
 if (!txt)
 	return FALSE;
 
@@ -222,7 +224,7 @@ switch (priority) {
 	break;
 }
 st=g_queue_pop_head(p->sentences);
-g_return_if_fail(st, FALSE);
+g_return_val_if_fail(st, FALSE);
 
 return speak_text(st);
 }
@@ -230,7 +232,7 @@ return speak_text(st);
 gboolean
 gdspeak_speak(Gdspeak *gs, const gchar *txt)
 {
-g_return_if_fail(gs, FALSE);
+g_return_val_if_fail(gs, FALSE);
 
 return gdspeak_speak_priority(gs, 100, txt);
 }
@@ -238,5 +240,7 @@ return gdspeak_speak_priority(gs, 100, txt);
 gboolean
 gdspeak_stop(Gdspeak *gs)
 {
+g_return_val_if_fail(gs, FALSE);
+
 return speak_stop();
 }
