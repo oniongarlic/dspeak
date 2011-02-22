@@ -18,3 +18,10 @@ BUILT_SOURCES =	dspeak-server-glue.h
 
 dspeak-server-glue.h: dspeak-server.xml
 	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak dspeak-server.xml > dspeak-server-glue.h
+
+servicedir = $(DBUS_SERVICES_DIR)
+service_in_files = org.tal.gdspeak.service.in
+service_DATA = $(service_in_files:.service.in=.service)
+
+$(service_DATA): $(service_in_files) Makefile
+	sed -e "s|\@libexecdir\@|$(libexecdir)|" $< > $@
