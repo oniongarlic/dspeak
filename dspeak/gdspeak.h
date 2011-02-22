@@ -51,7 +51,7 @@ GType gdspeak_get_type(void);
 
 Gdspeak *gdspeak_new(void);
 gboolean gdspeak_speak(Gdspeak *gds, const gchar *txt);
-gboolean gdspeak_speak_priority(Gdspeak *gds, gint priority, const gchar *txt);
+gboolean gdspeak_speak_priority(Gdspeak *gds, guint priority, const gchar *txt);
 gboolean gdspeak_speak_full(Gdspeak *gds, const gchar *txt, gint speed, gint tone, const gchar *lang);
 gboolean gdspeak_stop(Gdspeak *gds);
 

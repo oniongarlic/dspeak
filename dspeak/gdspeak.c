@@ -48,6 +48,7 @@ enum {
 
 typedef struct _GdspeakPrivate GdspeakPrivate;
 struct _GdspeakPrivate {
+	GQueue *sentences;
 	GSList *voices;
 };
 
@@ -158,12 +159,14 @@ espeak_VOICE **vs, **i;
 
 p=GET_PRIVATE(gs);
 
+p->sentences=g_queue_new();
+
 vs=espeak_ListVoices(NULL);
 
 for (i=vs; *i; i++) {
 	espeak_VOICE *v=*i;
 
-	g_debug("V: %s %s %s", v->name, v->languages, v->identifier);
+	g_debug("V: [%s] (%s) [%s]", v->name, v->languages, v->identifier);
 }
 
 }
@@ -189,18 +192,46 @@ return p->voices;
 }
 
 gboolean
-gdspeak_speak_priority(Gdspeak *gs, gint priority, const gchar *txt)
+gdspeak_speak_priority(Gdspeak *gs, guint priority, const gchar *txt)
 {
+gchar *st;
+GdspeakPrivate *p=GET_PRIVATE(gs);
+
+g_return_if_fail(gs, FALSE);
+if (!txt)
+	return FALSE;
+
+/* We take only valid utf8, bail if it's not */
 if (!g_utf8_validate(txt, -1, NULL))
 	return FALSE;
-if (priority==0)
-	speak_stop();
-return speak_text(txt);
+
+if (priority>255)
+	priority=255;
+
+switch (priority) {
+	case 0:
+		speak_stop();
+	case 1:
+		g_queue_push_head(p->sentences, txt);
+	break;
+	case 255:
+		g_queue_push_tail(p->sentences, txt);
+	break;
+	default:
+		g_queue_push_nth(p->sentences, txt, priority);
+	break;
+}
+st=g_queue_pop_head(p->sentences);
+g_return_if_fail(st, FALSE);
+
+return speak_text(st);
 }
 
 gboolean
 gdspeak_speak(Gdspeak *gs, const gchar *txt)
 {
+g_return_if_fail(gs, FALSE);
+
 return gdspeak_speak_priority(gs, 100, txt);
 }
 
