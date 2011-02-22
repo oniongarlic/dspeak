@@ -16,5 +16,10 @@
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
   		</arg>
     </method>
+    <method name="Stop">
+		<arg type="b" direction="out" >
+    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+  		</arg>
+    </method>
   </interface>
 </node>
