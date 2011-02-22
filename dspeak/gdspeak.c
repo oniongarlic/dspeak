@@ -244,3 +244,11 @@ g_return_val_if_fail(gs, FALSE);
 
 return speak_stop();
 }
+
+gboolean
+gdspeak_set_voice(Gdspeak *gs, const gchar *voice)
+{
+g_return_val_if_fail(gs, FALSE);
+
+return espeak_SetVoiceByName(voice)==EE_OK ? TRUE : FALSE;
+}

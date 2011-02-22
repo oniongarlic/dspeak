@@ -55,6 +55,8 @@ gboolean gdspeak_speak_priority(Gdspeak *gds, guint priority, const gchar *txt);
 gboolean gdspeak_speak_full(Gdspeak *gds, const gchar *txt, gint speed, gint tone, const gchar *lang);
 gboolean gdspeak_stop(Gdspeak *gds);
 
+gboolean gdspeak_set_voice(Gdspeak *gs, const gchar *voice);
+
 G_END_DECLS
 
 #endif

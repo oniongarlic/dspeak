@@ -21,5 +21,11 @@
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
   		</arg>
     </method>
+    <method name="SetVoice">
+    	<arg type="s" name="voice" direction="in" />
+		<arg type="b" direction="out" >
+    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+  		</arg>
+    </method>
   </interface>
 </node>
