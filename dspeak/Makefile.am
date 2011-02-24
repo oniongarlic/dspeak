@@ -7,7 +7,8 @@ libgdspeak_la_CFLAGS = $(ESPEAK_CFLAGS) $(GLIB_CFLAGS) $(defines)
 libgdspeak_la_LIBADD = $(ESPEAK_LIBS) $(GLIB_LIBS)
 libgdspeak_la_LDFLAGS = -lm -no-undefined -version-info 0:0:0
 
-libexec_PROGRAMS=dspeak dspeak-client
+libexec_PROGRAMS=dspeak
+bin_PROGRAMS=dspeak-client
 
 dspeak_CFLAGS = $(GLIB_CFLAGS) $(ESPEAK_CFLAGS)
 dspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) libgdspeak.la
