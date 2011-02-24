@@ -14,10 +14,13 @@ dspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) libgdspeak.la
 
 dspeak_SOURCES=main.c dspeak-server-glue.h
 
-BUILT_SOURCES =	dspeak-server-glue.h
+BUILT_SOURCES=dspeak-server-glue.h dspeak-client-glue.h
 
-dspeak-server-glue.h: dspeak-server.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak dspeak-server.xml > dspeak-server-glue.h
+dspeak-server-glue.h: dspeak-interface.xml
+	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak dspeak-interface.xml > dspeak-server-glue.h
+
+dspeak-client-glue.h: dspeak-interface.xml
+	$(DBUS_BINDING_TOOL) --mode=glib-client --prefix=gdspeak dspeak-interface.xml > dspeak-client-glue.h
 
 servicedir = $(DBUS_SERVICES_DIR)
 service_in_files = org.tal.gdspeak.service.in
