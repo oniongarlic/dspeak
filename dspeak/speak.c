@@ -39,12 +39,6 @@ espeak_SetVoiceByName(voice);
 return TRUE;
 }
 
-void
-speak_deinit(void)
-{
-espeak_Terminate();
-}
-
 gboolean
 speak_text(const gchar *text)
 {
@@ -57,16 +51,4 @@ if (ee==EE_BUFFER_FULL) {
 	return FALSE;
 }
 return TRUE;
-}
-
-gboolean
-speak_speaking(void)
-{
-return espeak_IsPlaying()==1 ? TRUE : FALSE;
-}
-
-gboolean
-speak_stop(void)
-{
-return espeak_Cancel()==EE_OK ? TRUE : FALSE;
 }
