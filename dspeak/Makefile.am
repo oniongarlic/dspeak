@@ -7,12 +7,15 @@ libgdspeak_la_CFLAGS = $(ESPEAK_CFLAGS) $(GLIB_CFLAGS) $(defines)
 libgdspeak_la_LIBADD = $(ESPEAK_LIBS) $(GLIB_LIBS)
 libgdspeak_la_LDFLAGS = -lm -no-undefined -version-info 0:0:0
 
-libexec_PROGRAMS=dspeak
+libexec_PROGRAMS=dspeak dspeak-client
 
 dspeak_CFLAGS = $(GLIB_CFLAGS) $(ESPEAK_CFLAGS)
 dspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) libgdspeak.la
-
 dspeak_SOURCES=main.c dspeak-server-glue.h
+
+dspeak_client_CFLAGS = $(GLIB_CFLAGS)
+dspeak_client_LDADD = $(GLIB_LIBS)
+dspeak_client_SOURCES=client.c dspeak-client-glue.h
 
 BUILT_SOURCES=dspeak-server-glue.h dspeak-client-glue.h
 

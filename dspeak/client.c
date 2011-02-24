@@ -26,19 +26,17 @@
 #include <dbus/dbus-glib-bindings.h>
 #include "gdspeak.h"
 
+#include "dspeak-client-glue.h"
+
 gint
 main(gint argc, gchar **argv)
 {
 DBusGConnection *conn;
 DBusGProxy *proxy;
 GError *error=NULL;
-GMainLoop *mainloop;
-Gdspeak *ds;
-guint32 rname;
+gboolean r,cr;
 
 g_type_init();
-
-mainloop=g_main_loop_new(NULL, FALSE);
 
 conn=dbus_g_bus_get(DBUS_BUS_SESSION, &error);
 if (!conn) {
@@ -46,19 +44,15 @@ if (!conn) {
 	return 1;
 }
 
-proxy=dbus_g_proxy_new_for_name(conn, DBUS_SERVICE_DBUS, DBUS_PATH_DBUS, DBUS_INTERFACE_DBUS);
+proxy=dbus_g_proxy_new_for_name(conn, GDSPEAK_NAME_DBUS, GDSPEAK_PATH_DBUS, GDSPEAK_INTERFACE_DBUS);
 
-if (!org_freedesktop_DBus_request_name(proxy, GDSPEAK_NAME_DBUS, 0, &rname, &error)) {
-	g_error ("Error registering D-Bus service %s: %s", GDSPEAK_NAME_DBUS, error->message);
+cr=org_tal_gdspeak_speak(proxy, argc > 1 ? argv[1] : "I need one argument", &r, &error);
+if (!cr) {
+	g_error("Failed: %s", error->message);
 	return 1;
 }
 
-if (rname != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
-	return 1;
+g_object_unref(proxy);
 
-ds=gdspeak_new();
-dbus_g_connection_register_g_object(conn, GDSPEAK_PATH_DBUS, G_OBJECT(ds));
-
-g_main_loop_run(mainloop);
 return 0;
 }
