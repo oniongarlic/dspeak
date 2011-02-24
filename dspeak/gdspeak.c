@@ -3,19 +3,21 @@
  *
  * Copyright (C) 2011 Kaj-Michael Lang
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ * You should have received a copy of the GNU Library General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
+ *
  */
 
 #include <glib.h>
@@ -46,10 +48,17 @@ enum {
 	PROP_VOLUME,
 };
 
+typedef struct _Sentence Sentence;
+struct _Sentence {
+	const gchar *txt;
+	guint32 id;
+};
+
 typedef struct _GdspeakPrivate GdspeakPrivate;
 struct _GdspeakPrivate {
 	GQueue *sentences;
 	GSList *voices;
+	guint32 id;
 };
 
 #define GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GDSPEAK_TYPE, GdspeakPrivate))
@@ -70,7 +79,7 @@ Gdspeak *go=GDSPEAK(object);
 g_return_if_fail(go);
 G_OBJECT_CLASS(gdspeak_parent_class)->finalize(object);
 
-speak_deinit();
+espeak_Terminate();
 }
 
 static void
@@ -162,6 +171,7 @@ espeak_VOICE **vs, **i;
 p=GET_PRIVATE(gs);
 
 p->sentences=g_queue_new();
+p->id=0;
 
 vs=espeak_ListVoices(NULL);
 
@@ -212,7 +222,7 @@ if (priority>255)
 
 switch (priority) {
 	case 0:
-		speak_stop();
+		gdspeak_stop(gs);
 	case 1:
 		g_queue_push_head(p->sentences, txt);
 	break;
@@ -242,7 +252,15 @@ gdspeak_stop(Gdspeak *gs)
 {
 g_return_val_if_fail(gs, FALSE);
 
-return speak_stop();
+return espeak_Cancel()==EE_OK ? TRUE : FALSE;
+}
+
+gboolean
+gdspeak_speaking(Gdspeak *gs)
+{
+g_return_val_if_fail(gs, FALSE);
+
+return espeak_IsPlaying()==1 ? TRUE : FALSE;
 }
 
 gboolean
