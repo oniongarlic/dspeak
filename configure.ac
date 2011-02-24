@@ -25,7 +25,7 @@ fi
 
 CFLAGS="$CFLAGS $DEBUG_FLAGS -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations"
 
-PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1)
+PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1 gconf-2.0)
 
 AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
 AC_PATH_PROG(DBUS_BINDING_TOOL, dbus-binding-tool)
@@ -33,6 +33,9 @@ AC_PATH_PROG(DBUS_BINDING_TOOL, dbus-binding-tool)
 DBUS_SERVICES_DIR="${datadir}/dbus-1/services"
 AC_SUBST(DBUS_SERVICES_DIR)
 AC_DEFINE_UNQUOTED(DBUS_SERVICES_DIR, "$DBUS_SERVICES_DIR", [Where services dir for D-Bus is])
+
+AC_PATH_PROG(GCONFTOOL, gconftool-2)
+AM_GCONF_SOURCE_2
 
 # espeak
 AC_CHECK_HEADER(espeak/speak_lib.h, HAVE_ESPEAK=yes, HAVE_ESPEAK=no)
