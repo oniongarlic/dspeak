@@ -1,1 +1,8 @@
 A GObject wrapper for espeak, with a D-Bus service.
+
+Simple test:
+dbus-send --print-reply  --dest='org.tal.gdspeak' /org/tal/gdspeak org.tal.gdspeak.Speak string:"hello"
+
+With priority setting:
+dbus-send --print-reply  --dest='org.tal.gdspeak' /org/tal/gdspeak org.tal.gdspeak.SpeakPriority string:"hello"
+
