@@ -51,6 +51,7 @@ enum {
 typedef struct _Sentence Sentence;
 struct _Sentence {
 	const gchar *txt;
+	guint priority;
 	guint32 id;
 };
 
@@ -64,6 +65,34 @@ struct _GdspeakPrivate {
 #define GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GDSPEAK_TYPE, GdspeakPrivate))
 
 static guint signals[LAST_SIGNAL]={ 0 };
+
+/** Sentece tracking helpers **/
+
+static Sentence *
+sentence_new(guint32 id, const gchar *txt, guint priority)
+{
+Sentence *s;
+
+s=g_slice_new0(Sentence);
+s->id=id;
+s->txt=txt;
+if (priority>255)
+	priority=255;
+s->priority=priority;
+
+return s;
+}
+
+static void
+sentence_free(Sentence *s)
+{
+g_return_if_fail(s);
+
+g_free(s->txt);
+g_slice_free(Sentence, s);
+}
+
+/** The gdspeak object itself **/
 
 static void
 gdspeak_dispose(GObject *object)
@@ -101,7 +130,7 @@ switch (prop_id) {
 		espeak_SetParameter(espeakVOLUME, g_value_get_int(value), 0);
 	break;
 	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
 	break;
 }
 }
@@ -112,8 +141,20 @@ gdspeak_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *
 Gdspeak *go=GDSPEAK(object);
 
 switch (prop_id) {
+	case PROP_PITCH:
+
+	break;
+	case PROP_RATE:
+
+	break;
+	case PROP_RANGE:
+
+	break;
+	case PROP_VOLUME:
+
+	break;
 	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
 	break;
 }
 }
@@ -124,7 +165,7 @@ gdspeak_constructor(GType type, guint n_construct_params, GObjectConstructParam 
 static GObject *self=NULL;
 
 if (self==NULL) {
-	self=G_OBJECT_CLASS(gdspeak_parent_class)->constructor (type, n_construct_params, construct_params);
+	self=G_OBJECT_CLASS(gdspeak_parent_class)->constructor(type, n_construct_params, construct_params);
 	g_object_add_weak_pointer(self, (gpointer) &self);
 	return self;
 }
@@ -166,16 +207,17 @@ static void
 gdspeak_init(Gdspeak *gs)
 {
 GdspeakPrivate *p;
-espeak_VOICE **vs, **i;
+const espeak_VOICE **vs;
+espeak_VOICE **i;
 
 p=GET_PRIVATE(gs);
 
 p->sentences=g_queue_new();
-p->id=0;
+p->id=1;
 
 vs=espeak_ListVoices(NULL);
 
-for (i=vs; *i; i++) {
+for (i=(espeak_VOICE **)vs; *i; i++) {
 	espeak_VOICE *v=*i;
 
 	g_debug("V: [%s] (%s) [%s]", v->name, v->languages, v->identifier);
@@ -203,10 +245,24 @@ GdspeakPrivate *p=GET_PRIVATE(gs);
 return p->voices;
 }
 
-gboolean
+guint32
+/**
+ * gdspeak_speak_priority:
+ *
+ * Speak given sentence with the given priority.
+ * The smaller the number the higher priority the sentece has. Priority 
+ * 0 has the highest priority and will cancel any currently spoken 
+ * sentece. The default priority is 100, and lowest is 255.
+ * Priority 1 will always go at the top of the queue and 255 and then 
+ * end.
+ *
+ * XXX: Implement queue length limiting. 
+ *
+ * Returns: Sentence id, larger than 0, zero on error.
+ */
 gdspeak_speak_priority(Gdspeak *gs, guint priority, const gchar *txt)
 {
-gchar *st;
+Sentence *cs, *s;
 GdspeakPrivate *p=GET_PRIVATE(gs);
 
 g_return_val_if_fail(gs, FALSE);
@@ -217,36 +273,61 @@ if (!txt)
 if (!g_utf8_validate(txt, -1, NULL))
 	return FALSE;
 
-if (priority>255)
-	priority=255;
+if (p->id==0)
+	p->id=1;
+s=sentence_new(p->id++, txt, priority);
 
 switch (priority) {
 	case 0:
 		gdspeak_stop(gs);
 	case 1:
-		g_queue_push_head(p->sentences, txt);
+		g_queue_push_head(p->sentences, s);
 	break;
 	case 255:
-		g_queue_push_tail(p->sentences, txt);
+		g_queue_push_tail(p->sentences, s);
 	break;
 	default:
-		g_queue_push_nth(p->sentences, txt, priority);
+		g_queue_push_nth(p->sentences, s, s->priority);
 	break;
 }
-st=g_queue_pop_head(p->sentences);
-g_return_val_if_fail(st, FALSE);
+cs=g_queue_pop_head(p->sentences);
+g_return_val_if_fail(cs, FALSE);
 
-return speak_text(st);
+if (speak_text(cs->txt))
+	return cs->id;
+return 0;
 }
 
+/**
+ * gdspeak_speak:
+ *
+ * Speak the given text, with default priority. Does not return a 
+ * sentence tracking id, just TRUE or FALSE. Mainly for easy speech
+ * output when sentence tracking is not required.
+ *
+ * Returns: TRUE if sentence was succesfully queued, FALSE otherwise.
+ */
 gboolean
 gdspeak_speak(Gdspeak *gs, const gchar *txt)
 {
 g_return_val_if_fail(gs, FALSE);
 
-return gdspeak_speak_priority(gs, 100, txt);
+return gdspeak_speak_priority(gs, 100, txt)>0 ? TRUE : FALSE;
 }
 
+void
+gdspeak_clear(Gdspeak *gs)
+{
+g_return_if_fail(gs);
+
+
+}
+
+/**
+ * gdspeak_stop:
+ *
+ *
+ */
 gboolean
 gdspeak_stop(Gdspeak *gs)
 {
@@ -255,6 +336,11 @@ g_return_val_if_fail(gs, FALSE);
 return espeak_Cancel()==EE_OK ? TRUE : FALSE;
 }
 
+/**
+ * gdspeak_speaking:
+ *
+ *
+ */
 gboolean
 gdspeak_speaking(Gdspeak *gs)
 {
@@ -263,6 +349,13 @@ g_return_val_if_fail(gs, FALSE);
 return espeak_IsPlaying()==1 ? TRUE : FALSE;
 }
 
+/**
+ * gdspeak_set_voice:
+ *
+ * Set the voice to use.
+ *
+ * Returns: TRUE if voice was set, FALSE on error or if voice was not found.
+ */
 gboolean
 gdspeak_set_voice(Gdspeak *gs, const gchar *voice)
 {
