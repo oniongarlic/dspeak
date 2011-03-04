@@ -139,19 +139,24 @@ static void
 gdspeak_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
 Gdspeak *go=GDSPEAK(object);
+gint v;
 
 switch (prop_id) {
 	case PROP_PITCH:
-
+		v=espeak_GetParameter(espeakPITCH, 1);
+		g_value_set_int(value, v);
 	break;
 	case PROP_RATE:
-
+		v=espeak_GetParameter(espeakRATE, 1);
+		g_value_set_int(value, v);
 	break;
 	case PROP_RANGE:
-
+		v=espeak_GetParameter(espeakRANGE, 1);
+		g_value_set_int(value, v);
 	break;
 	case PROP_VOLUME:
-
+		v=espeak_GetParameter(espeakVOLUME, 1);
+		g_value_set_int(value, v);
 	break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -188,16 +193,16 @@ dbus_g_object_type_install_info(gdspeak_get_type (), &dbus_glib_gdspeak_object_i
 
 g_type_class_add_private(object_class, sizeof(GdspeakPrivate));
 
-pspec=g_param_spec_uint("pitch", "Pitch", "Speech base pitch, range 0-100.  50=normal", 0, 100, 50, G_PARAM_WRITABLE);
+pspec=g_param_spec_uint("pitch", "Pitch", "Speech base pitch, range 0-100.  50=normal", 0, 100, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_PITCH, pspec);
 
-pspec=g_param_spec_uint("range", "Range", "Pitch range, range 0-100. 0-monotone, 50=normal", 0, 100, 50, G_PARAM_WRITABLE);
+pspec=g_param_spec_uint("range", "Range", "Pitch range, range 0-100. 0-monotone, 50=normal", 0, 100, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_RANGE, pspec);
 
-pspec=g_param_spec_uint("rate", "Rate", "Speech speed, in words per minute", espeakRATE_MINIMUM, espeakRATE_MAXIMUM, espeakRATE_NORMAL, G_PARAM_WRITABLE);
+pspec=g_param_spec_uint("rate", "Rate", "Speech speed, in words per minute", espeakRATE_MINIMUM, espeakRATE_MAXIMUM, espeakRATE_NORMAL, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_RATE, pspec);
 
-pspec=g_param_spec_uint("volume", "Volume", "Speech volume", 0, 100, 50, G_PARAM_WRITABLE);
+pspec=g_param_spec_uint("volume", "Volume", "Speech volume", 0, 100, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_VOLUME, pspec);
 
 speak_init(DEFAULT_LANG);
