@@ -2,7 +2,7 @@ INCLUDES = -DDATADIR=\""$(datadir)"\" -DDBUS_API_SUBJECT_TO_CHANGE
 
 lib_LTLIBRARIES = libgdspeak.la
 
-libgdspeak_la_SOURCES = speak.c speak.h gdspeak.c gdspeak.h
+libgdspeak_la_SOURCES = gdspeak.c gdspeak.h
 libgdspeak_la_CFLAGS = $(ESPEAK_CFLAGS) $(GLIB_CFLAGS) $(defines)
 libgdspeak_la_LIBADD = $(ESPEAK_LIBS) $(GLIB_LIBS)
 libgdspeak_la_LDFLAGS = -lm -no-undefined -version-info 0:0:0

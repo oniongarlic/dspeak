@@ -23,13 +23,13 @@
 #include <glib.h>
 #include <glib-object.h>
 #include <espeak/speak_lib.h>
+#include <string.h>
 
 #include "gdspeak.h"
-#include "speak.h"
 
 #include "dspeak-server-glue.h"
 
-#define DEFAULT_LANG "en"
+#define DEFAULT_VOICE "en"
 
 G_DEFINE_TYPE(Gdspeak, gdspeak, G_TYPE_OBJECT);
 
@@ -53,12 +53,14 @@ struct _Sentence {
 	const gchar *txt;
 	guint priority;
 	guint32 id;
+	gpointer data;
 };
 
 typedef struct _GdspeakPrivate GdspeakPrivate;
 struct _GdspeakPrivate {
 	GQueue *sentences;
 	GSList *voices;
+	gint srate;
 	guint32 id;
 };
 
@@ -79,7 +81,7 @@ s->txt=txt;
 if (priority>255)
 	priority=255;
 s->priority=priority;
-
+s->data=NULL;
 return s;
 }
 
@@ -90,6 +92,62 @@ g_return_if_fail(s);
 
 g_free(s->txt);
 g_slice_free(Sentence, s);
+}
+
+/** Helpers **/
+static gboolean
+speak_sentence(Sentence *s)
+{
+const gchar *text;
+gint tlen;
+espeak_ERROR ee;
+
+text=s->txt;
+tlen=strlen(text);
+
+g_debug("Speak: [%s] (%zu)", text, tlen);
+ee=espeak_Synth(text, tlen+1, 0, POS_CHARACTER, 0, espeakCHARS_UTF8 | espeakENDPAUSE, &s->id, s->data);
+if (ee==EE_BUFFER_FULL) {
+	g_warning("Espeak buffer full");
+	return FALSE;
+}
+return TRUE;
+}
+
+static int 
+speak_synth_cb(short *wav, int numsamples, espeak_EVENT *events)
+{
+espeak_EVENT *e;
+
+for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
+	g_debug("SCB: id=%d type=%d pos=%d len=%d apos=%d", e->unique_identifier, e->type, e->text_position, e->length, e->audio_position);
+	switch (e->type) {
+	case espeakEVENT_SENTENCE:
+		g_debug("S: %d", e->id.number);
+	break;
+	case espeakEVENT_WORD:
+		g_debug("W: %d", e->id.number);
+	break;
+	case espeakEVENT_MARK:
+		g_debug("M: %s", e->id.name);
+	break;
+	case espeakEVENT_PLAY:
+		g_debug("P: %s", e->id.name);
+	break;
+	case espeakEVENT_END:
+
+	break;
+	case espeakEVENT_PHONEME:
+
+	break;
+	case espeakEVENT_MSG_TERMINATED:
+
+	break;
+	case espeakEVENT_LIST_TERMINATED:
+		g_assert_not_reached();
+	}
+}
+return 0;
 }
 
 /** The gdspeak object itself **/
@@ -204,8 +262,6 @@ g_object_class_install_property(object_class, PROP_RATE, pspec);
 
 pspec=g_param_spec_uint("volume", "Volume", "Speech volume", 0, 100, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_VOLUME, pspec);
-
-speak_init(DEFAULT_LANG);
 }
 
 static void 
@@ -220,12 +276,18 @@ p=GET_PRIVATE(gs);
 p->sentences=g_queue_new();
 p->id=1;
 
+p->srate=espeak_Initialize(AUDIO_OUTPUT_PLAYBACK, 250, NULL, 0);
+if (p->srate==-1) {
+	g_warning("Failed to initialize espeak");
+	return;
+}
+espeak_SetSynthCallback(speak_synth_cb);
+espeak_SetVoiceByName(DEFAULT_VOICE);
 vs=espeak_ListVoices(NULL);
 
 for (i=(espeak_VOICE **)vs; *i; i++) {
 	espeak_VOICE *v=*i;
-
-	g_debug("V: [%s] (%s) [%s]", v->name, v->languages, v->identifier);
+	/* g_debug("V: [%s] (%s) [%s]", v->name, v->languages, v->identifier); */
 }
 
 }
@@ -281,6 +343,7 @@ if (!g_utf8_validate(txt, -1, NULL))
 if (p->id==0)
 	p->id=1;
 s=sentence_new(p->id++, txt, priority);
+s->data=gs;
 
 switch (priority) {
 	case 0:
@@ -298,7 +361,7 @@ switch (priority) {
 cs=g_queue_pop_head(p->sentences);
 g_return_val_if_fail(cs, FALSE);
 
-if (speak_text(cs->txt))
+if (speak_sentence(cs))
 	return cs->id;
 return 0;
 }
