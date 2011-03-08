@@ -323,19 +323,19 @@ g_object_class_install_property(object_class, PROP_VOLUME, pspec);
 signals[SIGNAL_START]=
 	g_signal_new("speak-start", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
 signals[SIGNAL_SENTENCE_START]=
-	g_signal_new("sentence-start", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_INT, G_TYPE_NONE, 0);
+	g_signal_new("sentence-start", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_INT, G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_INT);
 signals[SIGNAL_WORD]=
-	g_signal_new("word", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_INT, G_TYPE_NONE, 0);
+	g_signal_new("word", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_INT, G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_INT);
 signals[SIGNAL_MARK]=
-	g_signal_new("mark", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_STRING, G_TYPE_NONE, 0);
+	g_signal_new("mark", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_STRING, G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
 signals[SIGNAL_PLAY]=
-	g_signal_new("play", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_STRING, G_TYPE_NONE, 0);
+	g_signal_new("play", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_STRING, G_TYPE_NONE, 2, G_TYPE_INT, G_TYPE_STRING);
 signals[SIGNAL_PHONEME]=
-	g_signal_new("phoneme", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+	g_signal_new("phoneme", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_INT);
 signals[SIGNAL_SENTENCE_END]=
-	g_signal_new("sentence-end", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+	g_signal_new("sentence-end", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_INT);
 signals[SIGNAL_END]=
-	g_signal_new("speak-end", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+	g_signal_new("speak-end", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_INT);
 
 }
 
