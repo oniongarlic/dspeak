@@ -420,8 +420,10 @@ switch (priority) {
 p->cs=g_queue_pop_head(p->sentences);
 g_return_val_if_fail(p->cs, FALSE);
 
-if (speak_sentence(p->cs))
+if (speak_sentence(gs, p->cs))
 	return p->cs->id;
+sentence_free(p->cs);
+p->cs=NULL;
 return 0;
 }
 
