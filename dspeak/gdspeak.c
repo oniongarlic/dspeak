@@ -67,7 +67,7 @@ struct _Sentence {
 typedef struct _GdspeakPrivate GdspeakPrivate;
 struct _GdspeakPrivate {
 	GQueue *sentences;
-	GSList *voices;
+	GHashTable *voices;
 	Sentence *cs;
 	gint srate;
 	guint32 id;
@@ -139,7 +139,7 @@ espeak_EVENT *e;
 g_debug("CB");
 
 ds=GDSPEAK(events->user_data);
-g_return_if_fail(IS_GDSPEAK(ds));
+g_return_val_if_fail(IS_GDSPEAK(ds), 0);
 p=GET_PRIVATE(ds);
 
 for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
@@ -193,11 +193,14 @@ G_OBJECT_CLASS(gdspeak_parent_class)->dispose(object);
 static void
 gdspeak_finalize(GObject *object)
 {
-Gdspeak *go=GDSPEAK(object);
+Gdspeak *gs=GDSPEAK(object);
+GdspeakPrivate *p;
 
-g_return_if_fail(go);
+g_return_if_fail(gs);
 G_OBJECT_CLASS(gdspeak_parent_class)->finalize(object);
 
+p=GET_PRIVATE(gs);
+g_hash_table_destroy(p->voices);
 espeak_Terminate();
 }
 
@@ -338,10 +341,12 @@ if (p->srate==-1) {
 espeak_SetSynthCallback(speak_synth_cb);
 espeak_SetVoiceByName(DEFAULT_VOICE);
 vs=espeak_ListVoices(NULL);
+p->voices=g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 
 for (i=(espeak_VOICE **)vs; *i; i++) {
 	espeak_VOICE *v=*i;
 	g_debug("V: [%s] (%s) [%s]", v->name, v->languages, v->identifier);
+	g_hash_table_insert(p->voices, g_strdup(v->identifier), g_strdup(v->name));
 }
 
 }
