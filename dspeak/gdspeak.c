@@ -182,6 +182,13 @@ for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 return 0;
 }
 
+static int
+speak_uri_cb(int type, const char *uri, const char *base)
+{
+g_debug("UCB: t=%d uri=%s base=%s", type, uri, base);
+return 0;
+}
+
 /** The gdspeak object itself **/
 
 static void
@@ -339,6 +346,7 @@ if (p->srate==-1) {
 	return;
 }
 espeak_SetSynthCallback(speak_synth_cb);
+espeak_SetUriCallback(speak_uri_cb);
 espeak_SetVoiceByName(DEFAULT_VOICE);
 vs=espeak_ListVoices(NULL);
 p->voices=g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
@@ -420,7 +428,7 @@ switch (priority) {
 p->cs=g_queue_pop_head(p->sentences);
 g_return_val_if_fail(p->cs, FALSE);
 
-if (speak_sentence(gs, p->cs))
+if (speak_sentence(p->cs))
 	return p->cs->id;
 sentence_free(p->cs);
 p->cs=NULL;
