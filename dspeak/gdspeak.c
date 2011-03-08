@@ -116,11 +116,16 @@ tlen=strlen(text);
 
 g_debug("Speak: [%s] (%zu)", text, tlen);
 ee=espeak_Synth(text, tlen+1, 0, POS_CHARACTER, 0, espeakCHARS_UTF8 | espeakENDPAUSE, &s->id, s->data);
-if (ee==EE_BUFFER_FULL) {
-	g_warning("Espeak buffer full");
-	return FALSE;
+switch (ee) {
+	case EE_OK:
+		return TRUE;
+	case EE_BUFFER_FULL:
+	default:
+		g_warning("Espeak buffer full");
+		return FALSE;
+	break;
 }
-return TRUE;
+return FALSE;
 }
 
 /**
