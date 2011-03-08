@@ -12,7 +12,7 @@
     <method name="SpeakPriority">
     	<arg type="u" name="priority" direction="in" />
     	<arg type="s" name="txt" direction="in" />
-		<arg type="b" direction="out" >
+		<arg type="u" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
   		</arg>
     </method>
@@ -24,6 +24,11 @@
     <method name="SetVoice">
     	<arg type="s" name="voice" direction="in" />
 		<arg type="b" direction="out" >
+    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+  		</arg>
+    </method>
+    <method name="ListVoices">
+		<arg type="a{ss}" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
   		</arg>
     </method>

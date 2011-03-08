@@ -376,7 +376,7 @@ gdspeak_new(void)
 return g_object_new(GDSPEAK_TYPE, NULL);
 }
 
-GSList *
+GHashTable *
 gdspeak_list_voices(Gdspeak *gs)
 {
 GdspeakPrivate *p=GET_PRIVATE(gs);

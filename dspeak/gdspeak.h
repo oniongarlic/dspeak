@@ -63,6 +63,8 @@ gboolean gdspeak_speaking(Gdspeak *gds);
 
 gboolean gdspeak_set_voice(Gdspeak *gs, const gchar *voice);
 
+GHashTable *gdspeak_list_voices(Gdspeak *gs);
+
 G_END_DECLS
 
 #endif
