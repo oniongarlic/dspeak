@@ -35,7 +35,15 @@ G_DEFINE_TYPE(Gdspeak, gdspeak, G_TYPE_OBJECT);
 
 /* Signal IDs */
 enum {
-	SPOKEN,
+	SIGNAL_0,
+	SIGNAL_START,
+	SIGNAL_SENTENCE_START,
+	SIGNAL_WORD,
+	SIGNAL_MARK,
+	SIGNAL_PLAY,
+	SIGNAL_PHONEME,
+	SIGNAL_SENTENCE_END,
+	SIGNAL_END,
 	LAST_SIGNAL
 };
 
@@ -50,7 +58,7 @@ enum {
 
 typedef struct _Sentence Sentence;
 struct _Sentence {
-	const gchar *txt;
+	gchar *txt;
 	guint priority;
 	guint32 id;
 	gpointer data;
@@ -60,6 +68,7 @@ typedef struct _GdspeakPrivate GdspeakPrivate;
 struct _GdspeakPrivate {
 	GQueue *sentences;
 	GSList *voices;
+	Sentence *cs;
 	gint srate;
 	guint32 id;
 };
@@ -77,7 +86,7 @@ Sentence *s;
 
 s=g_slice_new0(Sentence);
 s->id=id;
-s->txt=txt;
+s->txt=g_strdup(txt);
 if (priority>255)
 	priority=255;
 s->priority=priority;
@@ -114,36 +123,59 @@ if (ee==EE_BUFFER_FULL) {
 return TRUE;
 }
 
+/**
+ * speak_synth_cb:
+ *
+ * Callback to handle events from espeak. Will emit signals with the event information.
+ *
+ */
 static int 
 speak_synth_cb(short *wav, int numsamples, espeak_EVENT *events)
 {
+Gdspeak *ds;
+GdspeakPrivate *p;
 espeak_EVENT *e;
+
+g_debug("CB");
+
+ds=GDSPEAK(events->user_data);
+g_return_if_fail(IS_GDSPEAK(ds));
+p=GET_PRIVATE(ds);
 
 for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 	g_debug("SCB: id=%d type=%d pos=%d len=%d apos=%d", e->unique_identifier, e->type, e->text_position, e->length, e->audio_position);
 	switch (e->type) {
 	case espeakEVENT_SENTENCE:
 		g_debug("S: %d", e->id.number);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_SENTENCE_START], 0, e->unique_identifier, NULL);
 	break;
 	case espeakEVENT_WORD:
 		g_debug("W: %d", e->id.number);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_WORD], 0, e->unique_identifier, NULL);
 	break;
 	case espeakEVENT_MARK:
 		g_debug("M: %s", e->id.name);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_MARK], 0, e->id.name, NULL);
 	break;
 	case espeakEVENT_PLAY:
 		g_debug("P: %s", e->id.name);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_PLAY], 0, e->id.name, NULL);
 	break;
 	case espeakEVENT_END:
-
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_SENTENCE_END], 0, e->unique_identifier, NULL);
 	break;
 	case espeakEVENT_PHONEME:
-
+		g_debug("PH: %d", e->id.number);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_PHONEME], 0, e->id.number, NULL);
 	break;
 	case espeakEVENT_MSG_TERMINATED:
-
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_END], 0, e->unique_identifier, NULL);
+		sentence_free(p->cs);
+		p->cs=NULL;
 	break;
+	case espeakEVENT_SAMPLERATE:
 	case espeakEVENT_LIST_TERMINATED:
+	default:
 		g_assert_not_reached();
 	}
 }
@@ -251,6 +283,8 @@ dbus_g_object_type_install_info(gdspeak_get_type (), &dbus_glib_gdspeak_object_i
 
 g_type_class_add_private(object_class, sizeof(GdspeakPrivate));
 
+/**
+ * Properties **/
 pspec=g_param_spec_uint("pitch", "Pitch", "Speech base pitch, range 0-100.  50=normal", 0, 100, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_PITCH, pspec);
 
@@ -262,6 +296,26 @@ g_object_class_install_property(object_class, PROP_RATE, pspec);
 
 pspec=g_param_spec_uint("volume", "Volume", "Speech volume", 0, 100, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_VOLUME, pspec);
+
+/**
+ * Signals **/
+signals[SIGNAL_START]=
+	g_signal_new("speak-start", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+signals[SIGNAL_SENTENCE_START]=
+	g_signal_new("sentence-start", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+signals[SIGNAL_WORD]=
+	g_signal_new("word", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+signals[SIGNAL_MARK]=
+	g_signal_new("mark", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__STRING, G_TYPE_NONE, 0);
+signals[SIGNAL_PLAY]=
+	g_signal_new("play", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__STRING, G_TYPE_NONE, 0);
+signals[SIGNAL_PHONEME]=
+	g_signal_new("phoneme", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+signals[SIGNAL_SENTENCE_END]=
+	g_signal_new("sentence-end", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+signals[SIGNAL_END]=
+	g_signal_new("speak-end", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+
 }
 
 static void 
@@ -287,7 +341,7 @@ vs=espeak_ListVoices(NULL);
 
 for (i=(espeak_VOICE **)vs; *i; i++) {
 	espeak_VOICE *v=*i;
-	/* g_debug("V: [%s] (%s) [%s]", v->name, v->languages, v->identifier); */
+	g_debug("V: [%s] (%s) [%s]", v->name, v->languages, v->identifier);
 }
 
 }
@@ -329,7 +383,7 @@ guint32
  */
 gdspeak_speak_priority(Gdspeak *gs, guint priority, const gchar *txt)
 {
-Sentence *cs, *s;
+Sentence *s;
 GdspeakPrivate *p=GET_PRIVATE(gs);
 
 g_return_val_if_fail(gs, FALSE);
@@ -358,11 +412,11 @@ switch (priority) {
 		g_queue_push_nth(p->sentences, s, s->priority);
 	break;
 }
-cs=g_queue_pop_head(p->sentences);
-g_return_val_if_fail(cs, FALSE);
+p->cs=g_queue_pop_head(p->sentences);
+g_return_val_if_fail(p->cs, FALSE);
 
-if (speak_sentence(cs))
-	return cs->id;
+if (speak_sentence(p->cs))
+	return p->cs->id;
 return 0;
 }
 

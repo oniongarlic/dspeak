@@ -27,5 +27,20 @@
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
   		</arg>
     </method>
+    <signal name="SpeakStart">
+		<arg type="i" name="sid" />
+	</signal>
+    <signal name="SentenceStart">
+		<arg type="i" name="sid" />
+	</signal>
+    <signal name="Word">
+		<arg type="i" name="sid" />
+	</signal>
+    <signal name="SentenceEnd">
+		<arg type="i" name="sid" />
+	</signal>
+    <signal name="SpeakEnd">
+		<arg type="i" name="sid" />
+	</signal>
   </interface>
 </node>
