@@ -5,47 +5,53 @@
     <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="gdspeak"/>
     <method name="Speak">
     	<arg type="s" name="txt" direction="in" />
-		<arg type="b" direction="out" >
+	<arg type="b" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
-  		</arg>
+  	</arg>
     </method>
     <method name="SpeakPriority">
     	<arg type="u" name="priority" direction="in" />
     	<arg type="s" name="txt" direction="in" />
-		<arg type="u" direction="out" >
+	<arg type="u" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
-  		</arg>
+  	</arg>
     </method>
     <method name="Stop">
-		<arg type="b" direction="out" >
+	<arg type="b" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
-  		</arg>
+  	</arg>
+    </method>
+    <method name="Clear">
+    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
     </method>
     <method name="SetVoice">
-    	<arg type="s" name="voice" direction="in" />
-		<arg type="b" direction="out" >
+   	<arg type="s" name="voice" direction="in" />
+	<arg type="b" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
-  		</arg>
+	</arg>
     </method>
     <method name="ListVoices">
-		<arg type="a{ss}" direction="out" >
-    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
-  		</arg>
+	<arg type="a{ss}" direction="out" >
+   	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+	</arg>
     </method>
     <signal name="SpeakStart">
-		<arg type="i" name="sid" />
-	</signal>
+	<arg type="i" name="uid" />
+    </signal>
     <signal name="SentenceStart">
-		<arg type="i" name="sid" />
-	</signal>
+	<arg type="i" name="uid" />
+	<arg type="i" name="sid" />
+    </signal>
     <signal name="Word">
-		<arg type="i" name="sid" />
-	</signal>
+	<arg type="i" name="uid" />
+	<arg type="i" name="tpos" />
+	<arg type="i" name="wid" />
+    </signal>
     <signal name="SentenceEnd">
-		<arg type="i" name="sid" />
-	</signal>
+	<arg type="i" name="uid" />
+    </signal>
     <signal name="SpeakEnd">
-		<arg type="i" name="sid" />
-	</signal>
+	<arg type="i" name="uid" />
+    </signal>
   </interface>
 </node>

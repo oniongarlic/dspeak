@@ -27,6 +27,7 @@
 
 #include "gdspeak.h"
 
+#include "gdspeak-marshal.h"
 #include "dspeak-server-glue.h"
 
 #define DEFAULT_VOICE "en"
@@ -108,7 +109,7 @@ static gboolean
 speak_sentence(Sentence *s)
 {
 const gchar *text;
-gint tlen;
+size_t tlen;
 espeak_ERROR ee;
 
 text=s->txt;
@@ -141,7 +142,7 @@ Gdspeak *ds;
 GdspeakPrivate *p;
 espeak_EVENT *e;
 
-g_debug("CB");
+g_debug("CB:");
 
 ds=GDSPEAK(events->user_data);
 g_return_val_if_fail(IS_GDSPEAK(ds), 0);
@@ -152,21 +153,22 @@ for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 	switch (e->type) {
 	case espeakEVENT_SENTENCE:
 		g_debug("S: %d", e->id.number);
-		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_SENTENCE_START], 0, e->unique_identifier, NULL);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_SENTENCE_START], 0, e->unique_identifier, e->id.number, NULL);
 	break;
 	case espeakEVENT_WORD:
 		g_debug("W: %d", e->id.number);
-		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_WORD], 0, e->unique_identifier, NULL);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_WORD], 0, e->unique_identifier, e->text_position, e->id.number, NULL);
 	break;
 	case espeakEVENT_MARK:
 		g_debug("M: %s", e->id.name);
-		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_MARK], 0, e->id.name, NULL);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_MARK], 0, e->unique_identifier, e->id.name, NULL);
 	break;
 	case espeakEVENT_PLAY:
 		g_debug("P: %s", e->id.name);
-		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_PLAY], 0, e->id.name, NULL);
+		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_PLAY], 0, e->unique_identifier, e->id.name, NULL);
 	break;
 	case espeakEVENT_END:
+		g_debug("E:");
 		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_SENTENCE_END], 0, e->unique_identifier, NULL);
 	break;
 	case espeakEVENT_PHONEME:
@@ -174,12 +176,16 @@ for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_PHONEME], 0, e->id.number, NULL);
 	break;
 	case espeakEVENT_MSG_TERMINATED:
+		g_debug("MT:");
 		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_END], 0, e->unique_identifier, NULL);
 		sentence_free(p->cs);
 		p->cs=NULL;
 	break;
-	case espeakEVENT_SAMPLERATE:
 	case espeakEVENT_LIST_TERMINATED:
+		g_debug("LT:");
+		return 0;
+	break;
+	case espeakEVENT_SAMPLERATE:
 	default:
 		g_assert_not_reached();
 	}
@@ -317,13 +323,13 @@ g_object_class_install_property(object_class, PROP_VOLUME, pspec);
 signals[SIGNAL_START]=
 	g_signal_new("speak-start", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
 signals[SIGNAL_SENTENCE_START]=
-	g_signal_new("sentence-start", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+	g_signal_new("sentence-start", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_INT, G_TYPE_NONE, 0);
 signals[SIGNAL_WORD]=
-	g_signal_new("word", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
+	g_signal_new("word", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_INT, G_TYPE_NONE, 0);
 signals[SIGNAL_MARK]=
-	g_signal_new("mark", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__STRING, G_TYPE_NONE, 0);
+	g_signal_new("mark", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_STRING, G_TYPE_NONE, 0);
 signals[SIGNAL_PLAY]=
-	g_signal_new("play", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__STRING, G_TYPE_NONE, 0);
+	g_signal_new("play", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, _gdspeak_VOID__INT_STRING, G_TYPE_NONE, 0);
 signals[SIGNAL_PHONEME]=
 	g_signal_new("phoneme", G_OBJECT_CLASS_TYPE(object_class), G_SIGNAL_RUN_FIRST, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 0);
 signals[SIGNAL_SENTENCE_END]=
@@ -402,7 +408,7 @@ guint32
 gdspeak_speak_priority(Gdspeak *gs, guint priority, const gchar *txt)
 {
 Sentence *s;
-GdspeakPrivate *p=GET_PRIVATE(gs);
+GdspeakPrivate *p;
 
 g_return_val_if_fail(gs, FALSE);
 if (!txt)
@@ -412,6 +418,7 @@ if (!txt)
 if (!g_utf8_validate(txt, -1, NULL))
 	return FALSE;
 
+p=GET_PRIVATE(gs);
 if (p->id==0)
 	p->id=1;
 s=sentence_new(p->id++, txt, priority);
@@ -457,12 +464,22 @@ g_return_val_if_fail(gs, FALSE);
 return gdspeak_speak_priority(gs, 100, txt)>0 ? TRUE : FALSE;
 }
 
+/**
+ * gdspeak_clear:
+ *
+ * Empty the sentence queue.
+ */
 void
 gdspeak_clear(Gdspeak *gs)
 {
+GdspeakPrivate *p;
+
 g_return_if_fail(gs);
 
+p=GET_PRIVATE(gs);
+g_return_if_fail(p->sentences);
 
+g_queue_foreach(p->sentences, sentence_free, NULL);
 }
 
 /**
