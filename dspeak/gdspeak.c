@@ -198,6 +198,18 @@ return FALSE;
  */
 #ifdef WITH_GST
 
+static gboolean 
+gst_espeak_stop_cb(gpointer data)
+{
+GdspeakPrivate *p=data;
+
+g_assert(p);
+
+espeak_Cancel();
+gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+return FALSE;
+}
+
 static gboolean
 gst_espeak_bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 {
@@ -206,32 +218,34 @@ GstState newstate;
 GstState oldstate;
 GstState pending;
 GError *err=NULL;
+GdspeakPrivate *p=data;
 
-switch (GST_MESSAGE_TYPE (msg)) {
+g_assert(p);
+
+switch (GST_MESSAGE_TYPE(msg)) {
 	case GST_MESSAGE_EOS:
 		g_debug("EOS from %s", GST_MESSAGE_SRC_NAME(msg));
-		ge.eos=TRUE;
-		g_timeout_add(500, (GSourceFunc)speak_stop, NULL);
+		p->ge.eos=TRUE;
+		g_timeout_add(500, (GSourceFunc)gst_espeak_stop_cb, p);
 	break;
 	case GST_MESSAGE_ERROR:
 		gst_message_parse_error(msg, &err, &debug);
 		g_debug("Error: %s", err->message);
-
 		g_free(debug);
 		g_error_free(err);
 
-		speak_stop();
+		gst_espeak_stop_cb(p);
 	break;
 	case GST_MESSAGE_STATE_CHANGED:
 		gst_message_parse_state_changed(msg, &oldstate, &newstate, &pending);
 		g_debug("GST: %s state changed (%d->%d => %d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
 
 		/* We are only interested in pipeline messages */
-		if (GST_MESSAGE_SRC(msg)!=GST_OBJECT(ge.pipeline))
+		if (GST_MESSAGE_SRC(msg)!=GST_OBJECT(p->ge.pipeline))
 			return TRUE;
 
 		if (pending==GST_STATE_PAUSED)
-			g_idle_add_full(G_PRIORITY_HIGH_IDLE,(GSourceFunc)speak_do_synth, NULL, NULL);
+			g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)speak_do_synth, NULL, NULL);
 	break;
 	default:
 		g_debug("GST: From %s -> %s", GST_MESSAGE_SRC_NAME(msg), gst_message_type_get_name(GST_MESSAGE_TYPE(msg)));
@@ -287,7 +301,7 @@ if (!gst_element_link(p->ge.queue, p->ge.sink)) {
 p->ge.bus=gst_pipeline_get_bus(GST_PIPELINE(p->ge.pipeline));
 g_return_val_if_fail(p->ge.bus, FALSE);
 
-gst_bus_add_watch(p->ge.bus, gst_espeak_bus_call, NULL);
+gst_bus_add_watch(p->ge.bus, gst_espeak_bus_call, p);
 
 return TRUE;
 }
@@ -307,10 +321,10 @@ gchar *data;
 
 if (wav==NULL) {
 #if GST_CHECK_VERSION(0,10,22)
-	if (gst_app_src_end_of_stream(GST_APP_SRC(ge.src))!=GST_FLOW_OK)
+	if (gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src))!=GST_FLOW_OK)
 		g_warning("Failed to push EOS");
 #else
-	gst_app_src_end_of_stream(GST_APP_SRC(ge.src));
+	gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src));
 #endif
 	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)speak_start_play, NULL, NULL);
 	return 0;
@@ -321,12 +335,12 @@ if (numsamples>0) {
 	numsamples=numsamples*2;
 	data=g_memdup(wav, numsamples);
 	buf=gst_app_buffer_new(data, numsamples, espeak_buffer_free, data);
-	gst_buffer_set_caps(buf, ge.srccaps);
+	gst_buffer_set_caps(buf, p->ge.srccaps);
 #if GST_CHECK_VERSION(0,10,22)
-	if (gst_app_src_push_buffer(GST_APP_SRC(ge.src), buf)!=GST_FLOW_OK)
+	if (gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf)!=GST_FLOW_OK)
 		g_warning("Failed to push buffer");
 #else
-	gst_app_src_push_buffer(GST_APP_SRC(ge.src), buf);
+	gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf);
 #endif
 return 0;
 }
