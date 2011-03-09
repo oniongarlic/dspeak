@@ -30,6 +30,11 @@
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappbuffer.h>
 #include <gst/app/gstappsink.h>
+
+#ifndef AUDIO_SINK
+#define AUDIO_SINK "alsasink"
+#endif
+
 #endif
 
 #include "gdspeak.h"
@@ -101,9 +106,14 @@ struct _GstEspeak {
 
 typedef struct _Sentence Sentence;
 struct _Sentence {
+	guint32 id;
 	gchar *txt;
 	guint priority;
-	guint32 id;
+	gchar *lc;
+	gint pitch;
+	gint speed;
+	gint rate;
+	gint volume;
 	gpointer data;
 };
 
@@ -116,6 +126,10 @@ struct _GdspeakPrivate {
 	GstEspeak ge;
 #endif
 	gint srate;
+	gint pitch;
+	gint speed;
+	gint rate;
+	gint volume;
 	guint32 id;
 };
 
@@ -242,7 +256,7 @@ p->ge.srccaps=gst_caps_new_simple ("audio/x-raw-int",
 			"depth", G_TYPE_INT, 16,
 			"signed", G_TYPE_BOOLEAN, TRUE, 
 			"width", G_TYPE_INT,  16,
-			"rate", G_TYPE_INT, ge.erate,
+			"rate", G_TYPE_INT, p->ge.srate,
 			"channels", G_TYPE_INT, 1,
 			NULL);
 g_return_val_if_fail(p->ge.srccaps, FALSE);
