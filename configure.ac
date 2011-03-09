@@ -25,6 +25,9 @@ fi
 
 CFLAGS="$CFLAGS $DEBUG_FLAGS -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations"
 
+AC_ARG_ENABLE([gst],AS_HELP_STRING([--enable-gst],[Use gstreamer for audio playback]),
+              [enable_gst=$enableval], [enable_gst=no])
+
 PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1 gconf-2.0)
 
 AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
@@ -36,6 +39,15 @@ AC_DEFINE_UNQUOTED(DBUS_SERVICES_DIR, "$DBUS_SERVICES_DIR", [Where services dir 
 
 AC_PATH_PROG(GCONFTOOL, gconftool-2)
 AM_GCONF_SOURCE_2
+
+if test "x$enable_gst" = "xyes" ; then
+PKG_CHECK_MODULES(GSTREAMER, gstreamer-0.10 gstreamer-base-0.10 gstreamer-plugins-base-0.10)
+GSTREAMER_LIBS="$GSTREAMER_LIBS -lgstapp-0.10"
+AC_SUBST(GSTREAMER_LIBS)
+AC_SUBST(GSTREAMER_CFLAGS)
+AC_DEFINE([WITH_GST], 1, [Use gst appsrc with espeak])
+AC_DEFINE([AUDIO_SINK], "alsasink", [Alsa])
+fi
 
 # espeak
 AC_CHECK_HEADER(espeak/speak_lib.h, HAVE_ESPEAK=yes, HAVE_ESPEAK=no)
