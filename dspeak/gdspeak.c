@@ -25,6 +25,13 @@
 #include <espeak/speak_lib.h>
 #include <string.h>
 
+#ifdef WITH_GST
+#include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
+#include <gst/app/gstappbuffer.h>
+#include <gst/app/gstappsink.h>
+#endif
+
 #include "gdspeak.h"
 
 #include "gdspeak-marshal.h"
@@ -57,6 +64,41 @@ enum {
 	PROP_VOLUME,
 };
 
+#ifdef WITH_GST
+typedef struct _GstEspeak GstEspeak;
+struct _GstEspeak {
+	GstCaps	*srccaps;
+	GstElement *pipeline;
+	GstElement *src;
+	GstElement *queue;
+	GstElement *sink;
+	GstBus *bus;
+	gboolean eos;
+	gboolean speaking;
+	gboolean espeak_ok;
+	gshort *buffer;
+	gint erate;
+	gint size;
+	gchar *text;
+};
+
+/***
+ * For old gstreamer in Diablo 
+ */
+#ifndef GST_MESSAGE_SRC_NAME
+#define GST_MESSAGE_SRC_NAME(message)   (GST_MESSAGE_SRC(message) ? \
+     GST_OBJECT_NAME (GST_MESSAGE_SRC(message)) : "(NULL)")
+#endif
+#ifndef GST_CHECK_VERSION
+#define	GST_CHECK_VERSION(major,minor,micro)	\
+    (GST_VERSION_MAJOR > (major) || \
+    (GST_VERSION_MAJOR == (major) && GST_VERSION_MINOR > (minor)) || \
+    (GST_VERSION_MAJOR == (major) && GST_VERSION_MINOR == (minor) && \
+     GST_VERSION_MICRO >= (micro)))
+#endif
+
+#endif
+
 typedef struct _Sentence Sentence;
 struct _Sentence {
 	gchar *txt;
@@ -70,6 +112,9 @@ struct _GdspeakPrivate {
 	GQueue *sentences;
 	GHashTable *voices;
 	Sentence *cs;
+#ifdef WITH_GST
+	GstEspeak ge;
+#endif
 	gint srate;
 	guint32 id;
 };
@@ -129,6 +174,146 @@ switch (ee) {
 return FALSE;
 }
 
+
+/**
+ * Gstreamer output mode
+ */
+#ifdef WITH_GST
+
+static gboolean
+gst_espeak_bus_call(GstBus *bus, GstMessage *msg, gpointer data)
+{
+gchar *debug;
+GstState newstate;
+GstState oldstate;
+GstState pending;
+GError *err=NULL;
+
+switch (GST_MESSAGE_TYPE (msg)) {
+	case GST_MESSAGE_EOS:
+		g_debug("EOS from %s", GST_MESSAGE_SRC_NAME(msg));
+		ge.eos=TRUE;
+		g_timeout_add(500, (GSourceFunc)speak_stop, NULL);
+	break;
+	case GST_MESSAGE_ERROR:
+		gst_message_parse_error(msg, &err, &debug);
+		g_debug("Error: %s", err->message);
+
+		g_free(debug);
+		g_error_free(err);
+
+		speak_stop();
+	break;
+	case GST_MESSAGE_STATE_CHANGED:
+		gst_message_parse_state_changed(msg, &oldstate, &newstate, &pending);
+		g_debug("GST: %s state changed (%d->%d => %d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
+
+		/* We are only interested in pipeline messages */
+		if (GST_MESSAGE_SRC(msg)!=GST_OBJECT(ge.pipeline))
+			return TRUE;
+
+		if (pending==GST_STATE_PAUSED)
+			g_idle_add_full(G_PRIORITY_HIGH_IDLE,(GSourceFunc)speak_do_synth, NULL, NULL);
+	break;
+	default:
+		g_debug("GST: From %s -> %s", GST_MESSAGE_SRC_NAME(msg), gst_message_type_get_name(GST_MESSAGE_TYPE(msg)));
+	break;
+	}
+return TRUE;
+}
+
+static gboolean
+gst_espeak_create_pipeline(GdspeakPrivate *p)
+{
+p->ge.pipeline=gst_pipeline_new("pipeline");
+g_return_val_if_fail(p->ge.pipeline, FALSE);
+
+p->ge.src=gst_element_factory_make("appsrc", "source");
+g_return_val_if_fail(p->ge.src, FALSE);
+
+#if GST_CHECK_VERSION(0,10,22)
+gst_app_src_set_size(GST_APP_SRC(p->ge.src), -1);
+gst_app_src_set_stream_type(GST_APP_SRC(p->ge.src), GST_APP_STREAM_TYPE_STREAM);
+/* g_object_set(GST_APP_SRC(ge.src), "block", TRUE, NULL); */
+g_object_set(GST_APP_SRC(p->ge.src), "is-live", TRUE, NULL);
+#endif
+
+p->ge.srccaps=gst_caps_new_simple ("audio/x-raw-int",
+			"depth", G_TYPE_INT, 16,
+			"signed", G_TYPE_BOOLEAN, TRUE, 
+			"width", G_TYPE_INT,  16,
+			"rate", G_TYPE_INT, ge.erate,
+			"channels", G_TYPE_INT, 1,
+			NULL);
+g_return_val_if_fail(p->ge.srccaps, FALSE);
+
+p->ge.queue=gst_element_factory_make("queue", "queue");
+g_return_val_if_fail(p->ge.queue, FALSE);
+
+p->ge.sink=gst_element_factory_make(AUDIO_SINK, "sink");
+g_return_val_if_fail(p->ge.sink, FALSE);
+
+gst_bin_add_many(GST_BIN(p->ge.pipeline), p->ge.src, p->ge.queue, p->ge.sink, NULL);
+
+if (!gst_element_link_filtered(p->ge.src, p->ge.queue, p->ge.srccaps)) {
+	g_warning("Failed to link source to queue with caps.");
+	return FALSE;
+}
+gst_caps_unref(p->ge.srccaps);
+
+if (!gst_element_link(p->ge.queue, p->ge.sink)) {
+	g_warning("Failed to link queue to sink.");
+	return FALSE;
+}
+
+p->ge.bus=gst_pipeline_get_bus(GST_PIPELINE(p->ge.pipeline));
+g_return_val_if_fail(p->ge.bus, FALSE);
+
+gst_bus_add_watch(p->ge.bus, gst_espeak_bus_call, NULL);
+
+return TRUE;
+}
+
+static void
+gst_espeak_destroy_pipeline(GdspeakPrivate *p)
+{
+gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+gst_object_unref(p->ge.pipeline);
+}
+
+static int 
+gst_espeak_cb(GdspeakPrivate *p, short *wav, int numsamples)
+{
+GstBuffer *buf;
+gchar *data;
+
+if (wav==NULL) {
+#if GST_CHECK_VERSION(0,10,22)
+	if (gst_app_src_end_of_stream(GST_APP_SRC(ge.src))!=GST_FLOW_OK)
+		g_warning("Failed to push EOS");
+#else
+	gst_app_src_end_of_stream(GST_APP_SRC(ge.src));
+#endif
+	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)speak_start_play, NULL, NULL);
+	return 0;
+}
+if (numsamples>0) {
+	g_debug("Adding speach buffer %d", numsamples);
+
+	numsamples=numsamples*2;
+	data=g_memdup(wav, numsamples);
+	buf=gst_app_buffer_new(data, numsamples, espeak_buffer_free, data);
+	gst_buffer_set_caps(buf, ge.srccaps);
+#if GST_CHECK_VERSION(0,10,22)
+	if (gst_app_src_push_buffer(GST_APP_SRC(ge.src), buf)!=GST_FLOW_OK)
+		g_warning("Failed to push buffer");
+#else
+	gst_app_src_push_buffer(GST_APP_SRC(ge.src), buf);
+#endif
+return 0;
+}
+#endif
+
 /**
  * speak_synth_cb:
  *
@@ -147,6 +332,10 @@ g_debug("CB:");
 ds=GDSPEAK(events->user_data);
 g_return_val_if_fail(IS_GDSPEAK(ds), 0);
 p=GET_PRIVATE(ds);
+
+#ifdef WITH_GST
+gst_espeak_cb(p, wav, numsamples);
+#endif
 
 for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 	g_debug("SCB: id=%d type=%d pos=%d len=%d apos=%d", e->unique_identifier, e->type, e->text_position, e->length, e->audio_position);
