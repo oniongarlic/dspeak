@@ -78,15 +78,14 @@ typedef struct _GstEspeak GstEspeak;
 struct _GstEspeak {
 	GstCaps	*srccaps;
 	GstElement *pipeline;
+	GstElement *ac;
 	GstElement *src;
 	GstElement *queue;
 	GstElement *sink;
 	GstBus *bus;
 	gboolean eos;
 	gboolean speaking;
-	gboolean espeak_ok;
 	gshort *buffer;
-	gint erate;
 	gint size;
 	gchar *text;
 };
@@ -141,6 +140,8 @@ struct _GdspeakPrivate {
 
 static guint signals[LAST_SIGNAL]={ 0 };
 
+static gboolean gdspeak_speak_next_sentence(GdspeakPrivate *p);
+
 /** Sentece tracking helpers **/
 
 static Sentence *
@@ -184,11 +185,16 @@ switch (ee) {
 	case EE_OK:
 		return TRUE;
 	case EE_BUFFER_FULL:
-	default:
-		g_warning("Espeak buffer full");
+		g_warning("ESBUFFUL");
 		return FALSE;
-	break;
+	case EE_INTERNAL_ERROR:
+		g_warning("ESINTERR");
+		return FALSE;
+	default:
+		g_warning("????????");
+		return FALSE;
 }
+g_warning("!?!?!?!");
 return FALSE;
 }
 
@@ -237,15 +243,19 @@ switch (GST_MESSAGE_TYPE(msg)) {
 		gst_espeak_stop_cb(p);
 	break;
 	case GST_MESSAGE_STATE_CHANGED:
+		p->ge.eos=FALSE;
 		gst_message_parse_state_changed(msg, &oldstate, &newstate, &pending);
-		g_debug("GST: %s state changed (%d->%d => %d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
+		g_debug("GST: %s state changed (o=%d->n=%d => p=%d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
 
 		/* We are only interested in pipeline messages */
 		if (GST_MESSAGE_SRC(msg)!=GST_OBJECT(p->ge.pipeline))
 			return TRUE;
 
-		if (pending==GST_STATE_PAUSED)
-			g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)speak_do_synth, NULL, NULL);
+		/* Pipe is going to pause, we can start pushing buffers */
+		if (pending==GST_STATE_PAUSED) {
+			g_debug("Preparing next sentence");
+			g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
+		}
 	break;
 	default:
 		g_debug("GST: From %s -> %s", GST_MESSAGE_SRC_NAME(msg), gst_message_type_get_name(GST_MESSAGE_TYPE(msg)));
@@ -257,6 +267,7 @@ return TRUE;
 static gboolean
 gst_espeak_create_pipeline(GdspeakPrivate *p)
 {
+p->ge.eos=TRUE;
 p->ge.pipeline=gst_pipeline_new("pipeline");
 g_return_val_if_fail(p->ge.pipeline, FALSE);
 
@@ -266,18 +277,22 @@ g_return_val_if_fail(p->ge.src, FALSE);
 #if GST_CHECK_VERSION(0,10,22)
 gst_app_src_set_size(GST_APP_SRC(p->ge.src), -1);
 gst_app_src_set_stream_type(GST_APP_SRC(p->ge.src), GST_APP_STREAM_TYPE_STREAM);
-/* g_object_set(GST_APP_SRC(ge.src), "block", TRUE, NULL); */
+/* g_object_set(GST_APP_SRC(p->ge.src), "block", TRUE, NULL); */
 g_object_set(GST_APP_SRC(p->ge.src), "is-live", TRUE, NULL);
 #endif
 
-p->ge.srccaps=gst_caps_new_simple ("audio/x-raw-int",
+p->ge.srccaps=gst_caps_new_simple("audio/x-raw-int",
 			"depth", G_TYPE_INT, 16,
-			"signed", G_TYPE_BOOLEAN, TRUE, 
 			"width", G_TYPE_INT,  16,
-			"rate", G_TYPE_INT, p->ge.srate,
+			"signed", G_TYPE_BOOLEAN, TRUE, 
+			"rate", G_TYPE_INT, p->srate,
 			"channels", G_TYPE_INT, 1,
+			"endianness", G_TYPE_INT, G_LITTLE_ENDIAN,
 			NULL);
 g_return_val_if_fail(p->ge.srccaps, FALSE);
+
+p->ge.ac=gst_element_factory_make("audioconvert", "ac");
+g_return_val_if_fail(p->ge.ac, FALSE);
 
 p->ge.queue=gst_element_factory_make("queue", "queue");
 g_return_val_if_fail(p->ge.queue, FALSE);
@@ -285,16 +300,21 @@ g_return_val_if_fail(p->ge.queue, FALSE);
 p->ge.sink=gst_element_factory_make(AUDIO_SINK, "sink");
 g_return_val_if_fail(p->ge.sink, FALSE);
 
-gst_bin_add_many(GST_BIN(p->ge.pipeline), p->ge.src, p->ge.queue, p->ge.sink, NULL);
+gst_bin_add_many(GST_BIN(p->ge.pipeline), p->ge.src, p->ge.ac, p->ge.queue, p->ge.sink, NULL);
 
-if (!gst_element_link_filtered(p->ge.src, p->ge.queue, p->ge.srccaps)) {
-	g_warning("Failed to link source to queue with caps.");
+if (!gst_element_link_filtered(p->ge.src, p->ge.ac, p->ge.srccaps)) {
+	g_warning("Failed to link src->ac with caps.");
 	return FALSE;
 }
 gst_caps_unref(p->ge.srccaps);
 
+if (!gst_element_link(p->ge.ac, p->ge.queue)) {
+	g_warning("Failed to link ac->queue.");
+	return FALSE;
+}
+
 if (!gst_element_link(p->ge.queue, p->ge.sink)) {
-	g_warning("Failed to link queue to sink.");
+	g_warning("Failed to link queue->sink.");
 	return FALSE;
 }
 
@@ -313,11 +333,32 @@ gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
 gst_object_unref(p->ge.pipeline);
 }
 
+static void
+gst_espeak_buffer_free(void *p)
+{
+g_free(p);
+}
+
+static gboolean
+gst_espeak_start_play(gpointer data)
+{
+GdspeakPrivate *p=data;
+
+g_assert(p);
+
+g_debug("PLAYING");
+if (gst_element_set_state(p->ge.pipeline, GST_STATE_PLAYING)==GST_STATE_CHANGE_FAILURE)
+	g_warning("Failed to play pipeline");
+return FALSE;
+}
+
 static int 
 gst_espeak_cb(GdspeakPrivate *p, short *wav, int numsamples)
 {
 GstBuffer *buf;
 gchar *data;
+
+g_debug("W: %d (%d)", wav==NULL ? 0 : 1, numsamples);
 
 if (wav==NULL) {
 #if GST_CHECK_VERSION(0,10,22)
@@ -326,7 +367,7 @@ if (wav==NULL) {
 #else
 	gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src));
 #endif
-	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)speak_start_play, NULL, NULL);
+	p->ge.eos=TRUE;
 	return 0;
 }
 if (numsamples>0) {
@@ -334,7 +375,7 @@ if (numsamples>0) {
 
 	numsamples=numsamples*2;
 	data=g_memdup(wav, numsamples);
-	buf=gst_app_buffer_new(data, numsamples, espeak_buffer_free, data);
+	buf=gst_app_buffer_new(data, numsamples, gst_espeak_buffer_free, data);
 	gst_buffer_set_caps(buf, p->ge.srccaps);
 #if GST_CHECK_VERSION(0,10,22)
 	if (gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf)!=GST_FLOW_OK)
@@ -342,6 +383,7 @@ if (numsamples>0) {
 #else
 	gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf);
 #endif
+}
 return 0;
 }
 #endif
@@ -401,6 +443,8 @@ for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_END], 0, e->unique_identifier, NULL);
 		sentence_free(p->cs);
 		p->cs=NULL;
+		if (g_queue_is_empty(p->sentences)==FALSE)
+			g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 	break;
 	case espeakEVENT_LIST_TERMINATED:
 		g_debug("LT:");
@@ -408,7 +452,7 @@ for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 	break;
 	case espeakEVENT_SAMPLERATE:
 	default:
-		g_assert_not_reached();
+		return 0;
 	}
 }
 return 0;
@@ -440,6 +484,9 @@ G_OBJECT_CLASS(gdspeak_parent_class)->finalize(object);
 
 p=GET_PRIVATE(gs);
 g_hash_table_destroy(p->voices);
+#ifdef WITH_GST
+gst_espeak_destroy_pipeline(p);
+#endif
 espeak_Terminate();
 }
 
@@ -572,7 +619,11 @@ p=GET_PRIVATE(gs);
 p->sentences=g_queue_new();
 p->id=1;
 
+#ifdef WITH_GST
+p->srate=espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 200, NULL, 0);
+#else
 p->srate=espeak_Initialize(AUDIO_OUTPUT_PLAYBACK, 250, NULL, 0);
+#endif
 if (p->srate==-1) {
 	g_warning("Failed to initialize espeak");
 	return;
@@ -588,6 +639,13 @@ for (i=(espeak_VOICE **)vs; *i; i++) {
 	g_debug("V: [%s] (%s) [%s]", v->name, v->languages, v->identifier);
 	g_hash_table_insert(p->voices, g_strdup(v->identifier), g_strdup(v->name));
 }
+
+#ifdef WITH_GST
+gst_espeak_create_pipeline(p);
+if (gst_element_set_state(p->ge.pipeline, GST_STATE_PLAYING)==GST_STATE_CHANGE_FAILURE) {
+	g_warning("Failed to prepare pipeline to paused.");
+}
+#endif
 
 }
 
@@ -611,7 +669,54 @@ GdspeakPrivate *p=GET_PRIVATE(gs);
 return p->voices;
 }
 
-guint32
+static gboolean
+gdspeak_push_sentence(GdspeakPrivate *p, Sentence *s)
+{
+switch (s->priority) {
+	case 0:
+	case 1:
+		g_queue_push_head(p->sentences, s);
+	break;
+	case 255:
+		g_queue_push_tail(p->sentences, s);
+	break;
+	default:
+		g_queue_push_nth(p->sentences, s, s->priority);
+	break;
+}
+return TRUE;
+}
+
+static gboolean
+gdspeak_speak_next_sentence(GdspeakPrivate *p)
+{
+g_debug("NS");
+
+#ifdef WITH_GST
+if (p->ge.eos==TRUE) {
+	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)gst_espeak_start_play, p, NULL);
+	return TRUE;
+}
+#endif
+
+p->cs=g_queue_pop_head(p->sentences);
+if (!p->cs) {
+	g_debug("Queue is empty");
+	return FALSE;
+}
+if (p->cs->priority==0) {
+	g_debug("P0");
+	espeak_Cancel();
+}
+g_debug("SP");
+if (speak_sentence(p->cs)==FALSE) {
+	g_warning("Failed to speak");
+	sentence_free(p->cs);
+	p->cs=NULL;
+}
+return FALSE;
+}
+
 /**
  * gdspeak_speak_priority:
  *
@@ -626,6 +731,7 @@ guint32
  *
  * Returns: Sentence id, larger than 0, zero on error.
  */
+guint32
 gdspeak_speak_priority(Gdspeak *gs, guint priority, const gchar *txt)
 {
 Sentence *s;
@@ -633,11 +739,11 @@ GdspeakPrivate *p;
 
 g_return_val_if_fail(gs, FALSE);
 if (!txt)
-	return FALSE;
+	return 0;
 
 /* We take only valid utf8, bail if it's not */
 if (!g_utf8_validate(txt, -1, NULL))
-	return FALSE;
+	return 0;
 
 p=GET_PRIVATE(gs);
 if (p->id==0)
@@ -645,27 +751,10 @@ if (p->id==0)
 s=sentence_new(p->id++, txt, priority);
 s->data=gs;
 
-switch (priority) {
-	case 0:
-		gdspeak_stop(gs);
-	case 1:
-		g_queue_push_head(p->sentences, s);
-	break;
-	case 255:
-		g_queue_push_tail(p->sentences, s);
-	break;
-	default:
-		g_queue_push_nth(p->sentences, s, s->priority);
-	break;
-}
-p->cs=g_queue_pop_head(p->sentences);
-g_return_val_if_fail(p->cs, FALSE);
-
-if (speak_sentence(p->cs))
-	return p->cs->id;
-sentence_free(p->cs);
-p->cs=NULL;
-return 0;
+gdspeak_push_sentence(p, s);
+if (espeak_IsPlaying()!=1)
+	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
+return s->id;
 }
 
 /**
@@ -709,10 +798,11 @@ g_queue_foreach(p->sentences, sentence_free, NULL);
  *
  */
 gboolean
-gdspeak_stop(Gdspeak *gs)
+gdspeak_stop(Gdspeak *gs, gboolean clear)
 {
 g_return_val_if_fail(gs, FALSE);
-
+if (clear)
+	gdspeak_clear(gs);
 return espeak_Cancel()==EE_OK ? TRUE : FALSE;
 }
 

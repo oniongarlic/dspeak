@@ -17,13 +17,18 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include <config.h>
+#include "config.h"
 #endif
 
 #include <glib.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-bindings.h>
+
+#ifdef WITH_GST
+#include <gst/gst.h>
+#endif
+
 #include "gdspeak.h"
 
 gint
@@ -37,6 +42,10 @@ Gdspeak *ds;
 guint32 rname;
 
 g_type_init();
+
+#ifdef WITH_GST
+gst_init(&argc, &argv);
+#endif
 
 mainloop=g_main_loop_new(NULL, FALSE);
 
