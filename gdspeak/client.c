@@ -66,7 +66,7 @@ proxy=dbus_g_proxy_new_for_name(conn, GDSPEAK_NAME_DBUS, GDSPEAK_PATH_DBUS, GDSP
 if (argc==2) {
 	cr=org_tal_gdspeak_speak(proxy, txt, &r, &error);
 } else {
-	cr=org_tal_gdspeak_speak_full(proxy, txt, lang, 1, pitch, range, rate, 50, &rid, &error);
+	cr=org_tal_gdspeak_speak_full(proxy, txt, lang, 255, pitch, range, rate, 50, &rid, &error);
 	g_debug("id=%d", rid);
 }
 
