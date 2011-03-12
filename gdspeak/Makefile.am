@@ -7,26 +7,29 @@ libgdspeak_la_CFLAGS = $(ESPEAK_CFLAGS) $(GLIB_CFLAGS) $(GSTREAMER_CFLAGS) $(def
 libgdspeak_la_LIBADD = $(ESPEAK_LIBS) $(GLIB_LIBS) $(GSTREAMER_LIBS)
 libgdspeak_la_LDFLAGS = -lm -no-undefined -version-info 0:0:0
 
-libexec_PROGRAMS=dspeak
-bin_PROGRAMS=dspeak-client
+libgdspeak_includedir=$(includedir)/gdspeak/
+libgdspeak_include_HEADERS = gdspeak-client-glue.h
 
-dspeak_CFLAGS = $(GLIB_CFLAGS) $(ESPEAK_CFLAGS) $(GSTREAMER_CFLAGS)
-dspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) $(GSTREAMER_LIBS) libgdspeak.la
-dspeak_SOURCES=main.c dspeak-server-glue.h
+libexec_PROGRAMS=gdspeak
+bin_PROGRAMS=gdspeak-client
 
-dspeak_client_CFLAGS = $(GLIB_CFLAGS)
-dspeak_client_LDADD = $(GLIB_LIBS)
-dspeak_client_SOURCES=client.c dspeak-client-glue.h
+gdspeak_CFLAGS = $(GLIB_CFLAGS) $(ESPEAK_CFLAGS) $(GSTREAMER_CFLAGS)
+gdspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) $(GSTREAMER_LIBS) libgdspeak.la
+gdspeak_SOURCES=main.c dspeak-server-glue.h
 
-BUILT_SOURCES=dspeak-server-glue.h dspeak-client-glue.h gdspeak-marshal.c gdspeak-marshal.h
+gdspeak_client_CFLAGS = $(GLIB_CFLAGS)
+gdspeak_client_LDADD = $(GLIB_LIBS)
+gdspeak_client_SOURCES=client.c dspeak-client-glue.h
+
+BUILT_SOURCES=gdspeak-server-glue.h gdspeak-client-glue.h gdspeak-marshal.c gdspeak-marshal.h
 
 EXTRA_DIST=gdspeak-marshal.list
 
 dspeak-server-glue.h: dspeak-interface.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak dspeak-interface.xml > dspeak-server-glue.h
+	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak dspeak-interface.xml > gdspeak-server-glue.h
 
 dspeak-client-glue.h: dspeak-interface.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-client --prefix=gdspeak dspeak-interface.xml > dspeak-client-glue.h
+	$(DBUS_BINDING_TOOL) --mode=glib-client --prefix=gdspeak dspeak-interface.xml > gdspeak-client-glue.h
 
 servicedir = $(DBUS_SERVICES_DIR)
 service_in_files = org.tal.gdspeak.service.in

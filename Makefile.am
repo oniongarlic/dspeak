@@ -1,6 +1,6 @@
 EXTRA_DIST = autogen.sh
 
-SUBDIRS = dspeak
+SUBDIRS = gdspeak
 
 DISTCHECK_CONFIGURE_FLAGS=--enable-gtk-doc
 
