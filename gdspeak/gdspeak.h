@@ -1,5 +1,5 @@
 /*
- * This file is part of dspeak
+ * This file is part of gdspeak
  *
  * Copyright (C) 2011 Kaj-Michael Lang
  *
