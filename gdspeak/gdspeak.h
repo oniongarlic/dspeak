@@ -56,10 +56,15 @@ struct _GdspeakClass {
 GType gdspeak_get_type(void);
 
 Gdspeak *gdspeak_new(void);
-gboolean gdspeak_speak(Gdspeak *gds, const gchar *txt);
+
+guint32 gdspeak_speak_full(Gdspeak *gs, const gchar *txt, const gchar *lang, guint priority, gint pitch, gint range, gint rate, gint volume);
 guint32 gdspeak_speak_priority(Gdspeak *gds, guint priority, const gchar *txt);
+gboolean gdspeak_speak(Gdspeak *gds, const gchar *txt);
+
 gboolean gdspeak_stop(Gdspeak *gds, gboolean clear);
+
 void gdspeak_clear(Gdspeak *gs);
+
 gboolean gdspeak_speaking(Gdspeak *gds);
 
 gboolean gdspeak_set_voice(Gdspeak *gs, const gchar *voice);

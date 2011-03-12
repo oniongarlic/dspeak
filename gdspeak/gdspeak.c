@@ -48,6 +48,13 @@
 
 #define DEFAULT_VOICE "en"
 
+#define PITCH_MIN (0)
+#define PITCH_MAX (100)
+#define RANGE_MIN (0)
+#define RANGE_MAX (100)
+#define VOL_MIN (0)
+#define VOL_MAX (100)
+
 G_DEFINE_TYPE(Gdspeak, gdspeak, G_TYPE_OBJECT);
 
 /* Signal IDs */
@@ -107,16 +114,23 @@ struct _GstEspeak {
 
 #endif
 
+typedef struct _SProperties SProperties;
+struct _SProperties {
+	const gchar *lang;
+	gint pitch;
+	gint speed;
+	gint rate;
+	gint range;
+	gint volume;
+};
+
 typedef struct _Sentence Sentence;
 struct _Sentence {
 	guint32 id;
 	gchar *txt;
 	guint priority;
 	gchar *lc;
-	gint pitch;
-	gint speed;
-	gint rate;
-	gint volume;
+	SProperties sp;
 	gpointer data;
 };
 
@@ -129,10 +143,7 @@ struct _GdspeakPrivate {
 	GstEspeak ge;
 #endif
 	gint srate;
-	gint pitch;
-	gint speed;
-	gint rate;
-	gint volume;
+	SProperties sp;
 	guint32 id;
 };
 
@@ -165,10 +176,26 @@ sentence_free(Sentence *s)
 g_return_if_fail(s);
 
 g_free(s->txt);
+g_free((gpointer)s->sp.lang);
 g_slice_free(Sentence, s);
 }
 
 /** Helpers **/
+static void
+espeak_set_properties(SProperties *sp)
+{
+if (sp->lang)
+	espeak_SetVoiceByName(sp->lang);
+if (sp->pitch>0)
+	espeak_SetParameter(espeakPITCH, sp->pitch, 0);
+if (sp->rate>0)
+	espeak_SetParameter(espeakRATE, sp->rate, 0);
+if (sp->range>0)
+	espeak_SetParameter(espeakRANGE, sp->range, 0);
+if (sp->volume>-1)
+	espeak_SetParameter(espeakVOLUME, sp->volume, 0);
+}
+
 static gboolean
 speak_sentence(Sentence *s)
 {
@@ -178,6 +205,8 @@ espeak_ERROR ee;
 
 text=s->txt;
 tlen=strlen(text);
+
+espeak_set_properties(&s->sp);
 
 g_debug("Speak: [%s] (%zu)", text, tlen);
 ee=espeak_Synth(text, tlen+1, 0, POS_CHARACTER, 0, espeakCHARS_UTF8 | espeakENDPAUSE, &s->id, s->data);
@@ -197,7 +226,6 @@ switch (ee) {
 g_warning("!?!?!?!");
 return FALSE;
 }
-
 
 /**
  * Gstreamer output mode
@@ -287,7 +315,7 @@ p->ge.srccaps=gst_caps_new_simple("audio/x-raw-int",
 			"signed", G_TYPE_BOOLEAN, TRUE, 
 			"rate", G_TYPE_INT, p->srate,
 			"channels", G_TYPE_INT, 1,
-			"endianness", G_TYPE_INT, G_LITTLE_ENDIAN,
+			"endianness", G_TYPE_INT, G_LITTLE_ENDIAN, /* XXX: Check what espeak does on big endian */
 			NULL);
 g_return_val_if_fail(p->ge.srccaps, FALSE);
 
@@ -493,20 +521,29 @@ espeak_Terminate();
 static void
 gdspeak_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
-Gdspeak *go=GDSPEAK(object);
+Gdspeak *gs=GDSPEAK(object);
+GdspeakPrivate *p;
+gint v;
 
+p=GET_PRIVATE(gs);
+
+v=g_value_get_int(value);
 switch (prop_id) {
 	case PROP_PITCH:
-		espeak_SetParameter(espeakPITCH, g_value_get_int(value), 0);
+		p->sp.pitch=v;
+		espeak_SetParameter(espeakPITCH, v, 0);
 	break;
 	case PROP_RATE:
-		espeak_SetParameter(espeakRATE, g_value_get_int(value), 0);
+		p->sp.rate=v;
+		espeak_SetParameter(espeakRATE, v, 0);
 	break;
 	case PROP_RANGE:
-		espeak_SetParameter(espeakRANGE, g_value_get_int(value), 0);
+		p->sp.range=v;
+		espeak_SetParameter(espeakRANGE, v, 0);
 	break;
 	case PROP_VOLUME:
-		espeak_SetParameter(espeakVOLUME, g_value_get_int(value), 0);
+		p->sp.volume=v;
+		espeak_SetParameter(espeakVOLUME, v, 0);
 	break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -517,25 +554,27 @@ switch (prop_id) {
 static void
 gdspeak_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
-Gdspeak *go=GDSPEAK(object);
-gint v;
+Gdspeak *gs=GDSPEAK(object);
+GdspeakPrivate *p;
+
+p=GET_PRIVATE(gs);
 
 switch (prop_id) {
 	case PROP_PITCH:
-		v=espeak_GetParameter(espeakPITCH, 1);
-		g_value_set_int(value, v);
+		p->sp.pitch=espeak_GetParameter(espeakPITCH, 1);
+		g_value_set_int(value, p->sp.pitch);
 	break;
 	case PROP_RATE:
-		v=espeak_GetParameter(espeakRATE, 1);
-		g_value_set_int(value, v);
+		p->sp.rate=espeak_GetParameter(espeakRATE, 1);
+		g_value_set_int(value, p->sp.rate);
 	break;
 	case PROP_RANGE:
-		v=espeak_GetParameter(espeakRANGE, 1);
-		g_value_set_int(value, v);
+		p->sp.range=espeak_GetParameter(espeakRANGE, 1);
+		g_value_set_int(value, p->sp.range);
 	break;
 	case PROP_VOLUME:
-		v=espeak_GetParameter(espeakVOLUME, 1);
-		g_value_set_int(value, v);
+		p->sp.volume=espeak_GetParameter(espeakVOLUME, 1);
+		g_value_set_int(value, p->sp.volume);
 	break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -574,16 +613,16 @@ g_type_class_add_private(object_class, sizeof(GdspeakPrivate));
 
 /**
  * Properties **/
-pspec=g_param_spec_uint("pitch", "Pitch", "Speech base pitch, range 0-100.  50=normal", 0, 100, 50, G_PARAM_READWRITE);
+pspec=g_param_spec_uint("pitch", "Pitch", "Speech base pitch, range 0-100.  50=normal", PITCH_MIN, PITCH_MAX, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_PITCH, pspec);
 
-pspec=g_param_spec_uint("range", "Range", "Pitch range, range 0-100. 0-monotone, 50=normal", 0, 100, 50, G_PARAM_READWRITE);
+pspec=g_param_spec_uint("range", "Range", "Pitch range, range 0-100. 0-monotone, 50=normal", RANGE_MIN, RANGE_MAX, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_RANGE, pspec);
 
 pspec=g_param_spec_uint("rate", "Rate", "Speech speed, in words per minute", espeakRATE_MINIMUM, espeakRATE_MAXIMUM, espeakRATE_NORMAL, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_RATE, pspec);
 
-pspec=g_param_spec_uint("volume", "Volume", "Speech volume", 0, 100, 50, G_PARAM_READWRITE);
+pspec=g_param_spec_uint("volume", "Volume", "Speech volume", VOL_MIN, VOL_MAX, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_VOLUME, pspec);
 
 /**
@@ -630,7 +669,15 @@ if (p->srate==-1) {
 }
 espeak_SetSynthCallback(speak_synth_cb);
 espeak_SetUriCallback(speak_uri_cb);
-espeak_SetVoiceByName(DEFAULT_VOICE);
+
+p->sp.pitch=50;
+p->sp.range=50;
+p->sp.rate=espeakRATE_NORMAL;
+p->sp.volume=50;
+p->sp.lang=g_strdup(DEFAULT_VOICE);
+
+espeak_set_properties(&p->sp);
+
 vs=espeak_ListVoices(NULL);
 p->voices=g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 
@@ -718,9 +765,60 @@ return FALSE;
 }
 
 /**
+ * gdspeak_speak_full:
+ *
+ * Speak given sentence with the given priority and speech settings.
+ *
+ * Set settings to -1 to use current for pitch, range, rate and volume.
+ *
+ * The smaller the number the higher priority the sentece has. Priority 
+ * 0 has the highest priority and will cancel any currently spoken 
+ * sentece. The default priority is 100, and lowest is 255.
+ * Priority 1 will always go at the top of the queue and 255 and then 
+ * end.
+ *
+ * XXX: Implement queue length limiting. 
+ *
+ * Returns: Sentence id, larger than 0, zero on error.
+ */
+guint32
+gdspeak_speak_full(Gdspeak *gs, const gchar *txt, const gchar *lang, guint priority, gint pitch, gint range, gint rate, gint volume)
+{
+Sentence *s;
+GdspeakPrivate *p;
+
+g_return_val_if_fail(gs, 0);
+if (!txt)
+	return 0;
+
+/* We take only valid utf8, bail if it's not */
+if (!g_utf8_validate(txt, -1, NULL))
+	return 0;
+
+p=GET_PRIVATE(gs);
+if (p->id==0)
+	p->id=1;
+s=sentence_new(p->id++, txt, priority);
+if (lang && g_hash_table_lookup(p->voices, lang))
+	s->sp.lang=lang;
+else
+	s->sp.lang=NULL;
+s->sp.pitch=pitch>-1 ? CLAMP(pitch, PITCH_MIN, PITCH_MAX) : -1;
+s->sp.range=range>-1 ? CLAMP(pitch, RANGE_MIN, RANGE_MAX) : -1;
+s->sp.rate=rate>-1 ? CLAMP(pitch, espeakRATE_MINIMUM, espeakRATE_MAXIMUM) : -1;
+s->sp.volume=volume>-1 ? CLAMP(pitch, VOL_MIN, VOL_MAX) : -1;
+s->data=gs;
+
+gdspeak_push_sentence(p, s);
+if (espeak_IsPlaying()!=1)
+	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
+return s->id;
+}
+
+/**
  * gdspeak_speak_priority:
  *
- * Speak given sentence with the given priority.
+ * Speak given sentence with the given priority and the current speech settings.
  * The smaller the number the higher priority the sentece has. Priority 
  * 0 has the highest priority and will cancel any currently spoken 
  * sentece. The default priority is 100, and lowest is 255.
@@ -734,35 +832,16 @@ return FALSE;
 guint32
 gdspeak_speak_priority(Gdspeak *gs, guint priority, const gchar *txt)
 {
-Sentence *s;
-GdspeakPrivate *p;
-
-g_return_val_if_fail(gs, FALSE);
-if (!txt)
-	return 0;
-
-/* We take only valid utf8, bail if it's not */
-if (!g_utf8_validate(txt, -1, NULL))
-	return 0;
-
-p=GET_PRIVATE(gs);
-if (p->id==0)
-	p->id=1;
-s=sentence_new(p->id++, txt, priority);
-s->data=gs;
-
-gdspeak_push_sentence(p, s);
-if (espeak_IsPlaying()!=1)
-	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
-return s->id;
+return gdspeak_speak_full(gs, txt, NULL, priority, -1, -1, -1, -1);
 }
 
 /**
  * gdspeak_speak:
  *
- * Speak the given text, with default priority. Does not return a 
- * sentence tracking id, just TRUE or FALSE. Mainly for easy speech
- * output when sentence tracking is not required.
+ * Speak the given text, with default priority and the current speech 
+ * settings. Does not return a  sentence tracking id, just TRUE or FALSE.
+ *
+ * Mainly for easy speech output when sentence tracking is not required.
  *
  * Returns: TRUE if sentence was succesfully queued, FALSE otherwise.
  */
@@ -789,7 +868,7 @@ g_return_if_fail(gs);
 p=GET_PRIVATE(gs);
 g_return_if_fail(p->sentences);
 
-g_queue_foreach(p->sentences, sentence_free, NULL);
+g_queue_foreach(p->sentences, (GFunc)sentence_free, NULL);
 }
 
 /**

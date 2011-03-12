@@ -3,9 +3,21 @@
 <node name="/org/tal/gdspeak">
   <interface name="org.tal.gdspeak">
     <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="gdspeak"/>
+    <method name="SpeakFull">
+    	<arg type="s" name="txt" direction="in" />
+    	<arg type="s" name="lang" direction="in" />
+    	<arg type="u" name="priority" direction="in" />
+    	<arg type="i" name="pitch" direction="in" />
+    	<arg type="i" name="range" direction="in" />
+    	<arg type="i" name="rate" direction="in" />
+    	<arg type="i" name="volume" direction="in" />
+		<arg type="b" direction="out" >
+    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+  	</arg>
+    </method>
     <method name="Speak">
     	<arg type="s" name="txt" direction="in" />
-	<arg type="b" direction="out" >
+		<arg type="b" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
   	</arg>
     </method>
