@@ -156,16 +156,13 @@ static gboolean gdspeak_speak_next_sentence(GdspeakPrivate *p);
 /** Sentece tracking helpers **/
 
 static Sentence *
-sentence_new(guint32 id, const gchar *txt, guint priority)
+sentence_new(guint32 id, const gchar *txt)
 {
 Sentence *s;
 
 s=g_slice_new0(Sentence);
 s->id=id;
 s->txt=g_strdup(txt);
-if (priority>255)
-	priority=255;
-s->priority=priority;
 s->data=NULL;
 return s;
 }
@@ -186,11 +183,11 @@ espeak_set_properties(SProperties *sp)
 {
 if (sp->lang)
 	espeak_SetVoiceByName(sp->lang);
-if (sp->pitch>0)
+if (sp->pitch>-1)
 	espeak_SetParameter(espeakPITCH, sp->pitch, 0);
-if (sp->rate>0)
+if (sp->rate>-1)
 	espeak_SetParameter(espeakRATE, sp->rate, 0);
-if (sp->range>0)
+if (sp->range>-1)
 	espeak_SetParameter(espeakRANGE, sp->range, 0);
 if (sp->volume>-1)
 	espeak_SetParameter(espeakVOLUME, sp->volume, 0);
@@ -796,17 +793,20 @@ if (!g_utf8_validate(txt, -1, NULL))
 	return 0;
 
 p=GET_PRIVATE(gs);
-if (p->id==0)
+if (G_UNLIKELY(p->id==0))
 	p->id=1;
-s=sentence_new(p->id++, txt, priority);
+
+s=sentence_new(p->id++, txt);
+s->priority=CLAMP(priority,0,255);
+
 if (lang && g_hash_table_lookup(p->voices, lang))
 	s->sp.lang=lang;
 else
 	s->sp.lang=NULL;
 s->sp.pitch=pitch>-1 ? CLAMP(pitch, PITCH_MIN, PITCH_MAX) : -1;
-s->sp.range=range>-1 ? CLAMP(pitch, RANGE_MIN, RANGE_MAX) : -1;
-s->sp.rate=rate>-1 ? CLAMP(pitch, espeakRATE_MINIMUM, espeakRATE_MAXIMUM) : -1;
-s->sp.volume=volume>-1 ? CLAMP(pitch, VOL_MIN, VOL_MAX) : -1;
+s->sp.range=range>-1 ? CLAMP(range, RANGE_MIN, RANGE_MAX) : -1;
+s->sp.rate=rate>-1 ? CLAMP(rate, espeakRATE_MINIMUM, espeakRATE_MAXIMUM) : -1;
+s->sp.volume=volume>-1 ? CLAMP(volume, VOL_MIN, VOL_MAX) : -1;
 s->data=gs;
 
 gdspeak_push_sentence(p, s);
