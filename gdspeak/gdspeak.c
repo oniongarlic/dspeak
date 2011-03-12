@@ -174,6 +174,8 @@ g_return_if_fail(s);
 
 g_free(s->txt);
 g_free((gpointer)s->sp.lang);
+s->txt=NULL;
+s->sp.lang=NULL;
 g_slice_free(Sentence, s);
 }
 
@@ -191,6 +193,8 @@ if (sp->range>-1)
 	espeak_SetParameter(espeakRANGE, sp->range, 0);
 if (sp->volume>-1)
 	espeak_SetParameter(espeakVOLUME, sp->volume, 0);
+
+g_debug("pitch=%d rate=%d range=%d v=%d l=%s", sp->pitch, sp->rate, sp->range, sp->volume, sp->lang ? sp->lang : "Default");
 }
 
 static gboolean
@@ -799,10 +803,11 @@ if (G_UNLIKELY(p->id==0))
 s=sentence_new(p->id++, txt);
 s->priority=CLAMP(priority,0,255);
 
-if (lang && g_hash_table_lookup(p->voices, lang))
-	s->sp.lang=lang;
-else
-	s->sp.lang=NULL;
+s->sp.lang=NULL;
+if (lang && g_hash_table_lookup(p->voices, lang)!=NULL)
+	s->sp.lang=g_strdup(lang);
+else if (lang)
+	g_warning("No such language: [%s]", lang);
 s->sp.pitch=pitch>-1 ? CLAMP(pitch, PITCH_MIN, PITCH_MAX) : -1;
 s->sp.range=range>-1 ? CLAMP(range, RANGE_MIN, RANGE_MAX) : -1;
 s->sp.rate=rate>-1 ? CLAMP(rate, espeakRATE_MINIMUM, espeakRATE_MAXIMUM) : -1;
