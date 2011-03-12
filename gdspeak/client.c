@@ -36,10 +36,11 @@ DBusGProxy *proxy;
 GError *error=NULL;
 gboolean r,cr;
 gchar *txt, *lang=NULL;
-gint pitch=50, range=50, rate=90;
+gint pitch=-1, range=-1, rate=-1;
 guint rid=0;
 
-g_debug("%d", argc);
+g_type_init();
+
 if (argc<2) {
 	g_error("I need at least one argument");
 	return 1;
@@ -47,13 +48,13 @@ if (argc<2) {
 txt=argv[1];
 
 if (argc>2)
-	pitch=atoi(argv[2]);
+	lang=argv[2];
 if (argc>3)
-	range=atoi(argv[3]);
+	pitch=atoi(argv[3]);
 if (argc>4)
-	rate=atoi(argv[4]);
-
-g_type_init();
+	range=atoi(argv[4]);
+if (argc>5)
+	rate=atoi(argv[5]);
 
 conn=dbus_g_bus_get(DBUS_BUS_SESSION, &error);
 if (!conn) {
@@ -66,7 +67,7 @@ proxy=dbus_g_proxy_new_for_name(conn, GDSPEAK_NAME_DBUS, GDSPEAK_PATH_DBUS, GDSP
 if (argc==2) {
 	cr=org_tal_gdspeak_speak(proxy, txt, &r, &error);
 } else {
-	cr=org_tal_gdspeak_speak_full(proxy, txt, lang, 255, pitch, range, rate, 50, &rid, &error);
+	cr=org_tal_gdspeak_speak_full(proxy, txt, lang, 255, pitch, range, rate, 100, &rid, &error);
 	g_debug("id=%d", rid);
 }
 
