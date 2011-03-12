@@ -26,7 +26,7 @@
 #include <dbus/dbus-glib-bindings.h>
 #include "gdspeak.h"
 
-#include "dspeak-client-glue.h"
+#include "gdspeak-client-glue.h"
 
 gint
 main(gint argc, gchar **argv)
@@ -35,6 +35,23 @@ DBusGConnection *conn;
 DBusGProxy *proxy;
 GError *error=NULL;
 gboolean r,cr;
+gchar *txt, *lang=NULL;
+gint pitch=50, range=50, rate=90;
+guint rid=0;
+
+g_debug("%d", argc);
+if (argc<2) {
+	g_error("I need at least one argument");
+	return 1;
+}
+txt=argv[1];
+
+if (argc>2)
+	pitch=atoi(argv[2]);
+if (argc>3)
+	range=atoi(argv[3]);
+if (argc>4)
+	rate=atoi(argv[4]);
 
 g_type_init();
 
@@ -46,7 +63,13 @@ if (!conn) {
 
 proxy=dbus_g_proxy_new_for_name(conn, GDSPEAK_NAME_DBUS, GDSPEAK_PATH_DBUS, GDSPEAK_INTERFACE_DBUS);
 
-cr=org_tal_gdspeak_speak(proxy, argc > 1 ? argv[1] : "I need one argument", &r, &error);
+if (argc==2) {
+	cr=org_tal_gdspeak_speak(proxy, txt, &r, &error);
+} else {
+	cr=org_tal_gdspeak_speak_full(proxy, txt, lang, 1, pitch, range, rate, 50, &rid, &error);
+	g_debug("id=%d", rid);
+}
+
 if (!cr) {
 	g_error("Failed: %s", error->message);
 	return 1;
