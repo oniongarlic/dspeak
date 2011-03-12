@@ -11,7 +11,7 @@
     	<arg type="i" name="range" direction="in" />
     	<arg type="i" name="rate" direction="in" />
     	<arg type="i" name="volume" direction="in" />
-		<arg type="b" direction="out" >
+	<arg type="u" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
   	</arg>
     </method>

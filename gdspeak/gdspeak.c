@@ -44,7 +44,7 @@
 #include "gdspeak.h"
 
 #include "gdspeak-marshal.h"
-#include "dspeak-server-glue.h"
+#include "gdspeak-server-glue.h"
 
 #define DEFAULT_VOICE "en"
 
