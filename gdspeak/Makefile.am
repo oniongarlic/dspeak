@@ -25,11 +25,11 @@ BUILT_SOURCES=gdspeak-server-glue.h gdspeak-client-glue.h gdspeak-marshal.c gdsp
 
 EXTRA_DIST=gdspeak-marshal.list
 
-dspeak-server-glue.h: dspeak-interface.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak dspeak-interface.xml > gdspeak-server-glue.h
+gdspeak-server-glue.h: gdspeak-interface.xml
+	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak gdspeak-interface.xml > gdspeak-server-glue.h
 
-dspeak-client-glue.h: dspeak-interface.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-client --prefix=gdspeak dspeak-interface.xml > gdspeak-client-glue.h
+gdspeak-client-glue.h: gdspeak-interface.xml
+	$(DBUS_BINDING_TOOL) --mode=glib-client --prefix=gdspeak gdspeak-interface.xml > gdspeak-client-glue.h
 
 servicedir = $(DBUS_SERVICES_DIR)
 service_in_files = org.tal.gdspeak.service.in
