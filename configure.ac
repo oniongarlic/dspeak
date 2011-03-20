@@ -28,7 +28,8 @@ CFLAGS="$CFLAGS $DEBUG_FLAGS -Wall -Wextra -Wmissing-prototypes -Wmissing-declar
 AC_ARG_ENABLE([gst],AS_HELP_STRING([--enable-gst],[Use gstreamer for audio playback]),
               [enable_gst=$enableval], [enable_gst=no])
 
-PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1 gconf-2.0)
+# PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1 gconf-2.0)
+PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1)
 
 AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
 AC_PATH_PROG(DBUS_BINDING_TOOL, dbus-binding-tool)
