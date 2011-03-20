@@ -65,7 +65,7 @@ fi
 # Produce output files
 AC_OUTPUT(
 	Makefile \
-	gdspeak.pc \
+	gdspeak-0.0.pc \
 	gdspeak/Makefile
 )
 
