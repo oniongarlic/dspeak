@@ -23,13 +23,15 @@ gdspeak_client_SOURCES=client.c dspeak-client-glue.h
 
 BUILT_SOURCES=gdspeak-server-glue.h gdspeak-client-glue.h gdspeak-marshal.c gdspeak-marshal.h
 
-EXTRA_DIST=gdspeak-marshal.list gdspeak-interface.xml
+EXTRA_DIST=gdspeak-marshal.list gdspeak-interface.xml org.tal.gdspeak.service.in
 
-gdspeak-server-glue.h: gdspeak-interface.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak gdspeak-interface.xml > gdspeak-server-glue.h
+CLEANFILES=org.tal.gdspeak.service gdspeak-server-glue.h gdspeak-client-glue.h
 
-gdspeak-client-glue.h: gdspeak-interface.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-client --prefix=gdspeak gdspeak-interface.xml > gdspeak-client-glue.h
+gdspeak-server-glue.h: $(srcdir)/gdspeak-interface.xml
+	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak $(srcdir)/gdspeak-interface.xml > gdspeak-server-glue.h
+
+gdspeak-client-glue.h: $(srcdir)/gdspeak-interface.xml
+	$(DBUS_BINDING_TOOL) --mode=glib-client --prefix=gdspeak $(srcdir)/gdspeak-interface.xml > gdspeak-client-glue.h
 
 servicedir = $(DBUS_SERVICES_DIR)
 service_in_files = org.tal.gdspeak.service.in
