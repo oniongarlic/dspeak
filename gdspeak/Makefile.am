@@ -23,7 +23,7 @@ gdspeak_client_SOURCES=client.c dspeak-client-glue.h
 
 BUILT_SOURCES=gdspeak-server-glue.h gdspeak-client-glue.h gdspeak-marshal.c gdspeak-marshal.h
 
-EXTRA_DIST=gdspeak-marshal.list
+EXTRA_DIST=gdspeak-marshal.list gdspeak-interface.xml
 
 gdspeak-server-glue.h: gdspeak-interface.xml
 	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gdspeak gdspeak-interface.xml > gdspeak-server-glue.h
