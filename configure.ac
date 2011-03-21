@@ -10,7 +10,7 @@ AC_PROG_INSTALL
 AC_PROG_LIBTOOL
 AC_DEFINE(_GNU_SOURCE, 1, [Enable GNU Extensions])
 AC_CONFIG_MACRO_DIR(m4)
-# GTK_DOC_CHECK(1.9)
+GTK_DOC_CHECK(1.9)
 PKG_PROG_PKG_CONFIG
 
 dnl Debugging options to enable debug macros
@@ -66,7 +66,10 @@ fi
 # Produce output files
 AC_OUTPUT(
 	Makefile \
-	gdspeak-0.0.pc \
 	gdspeak/Makefile
+	gdspeak-0.0.pc \
+	docs/Makefile \
+	docs/reference/Makefile \
+	docs/reference/gdspeak/Makefile 
 )
 
