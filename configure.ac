@@ -28,6 +28,8 @@ CFLAGS="$CFLAGS $DEBUG_FLAGS -Wall -Wextra -Wmissing-prototypes -Wmissing-declar
 AC_ARG_ENABLE([gst],AS_HELP_STRING([--enable-gst],[Use gstreamer for audio playback]),
               [enable_gst=$enableval], [enable_gst=no])
 
+AC_ARG_WITH([gstsink],[--with-gstsink=alsasink],[AUDIO_SINK=${with_gstsink}],[AUDIO_SINK=alsasink])
+
 # PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1 gconf-2.0)
 PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1)
 
@@ -42,23 +44,23 @@ AC_PATH_PROG(GCONFTOOL, gconftool-2)
 AM_GCONF_SOURCE_2
 
 if test "x$enable_gst" = "xyes" ; then
-PKG_CHECK_MODULES(GSTREAMER, gstreamer-0.10 gstreamer-base-0.10 gstreamer-plugins-base-0.10)
-GSTREAMER_LIBS="$GSTREAMER_LIBS -lgstapp-0.10"
-AC_SUBST(GSTREAMER_LIBS)
-AC_SUBST(GSTREAMER_CFLAGS)
-AC_DEFINE([WITH_GST], 1, [Use gst appsrc with espeak])
-AC_DEFINE([AUDIO_SINK], "alsasink", [Alsa])
+ PKG_CHECK_MODULES(GSTREAMER, gstreamer-0.10 gstreamer-base-0.10 gstreamer-plugins-base-0.10)
+ GSTREAMER_LIBS="$GSTREAMER_LIBS -lgstapp-0.10"
+ AC_DEFINE([WITH_GST], 1, [Use gst appsrc with espeak])
+ AC_SUBST(GSTREAMER_LIBS)
+ AC_SUBST(GSTREAMER_CFLAGS)
+ AC_DEFINE_UNQUOTED([AUDIO_SINK], ["${AUDIO_SINK}"], [Gstreamer sink to use])
 fi
 
 # espeak
 AC_CHECK_HEADER(espeak/speak_lib.h, HAVE_ESPEAK=yes, HAVE_ESPEAK=no)
 if test "x$HAVE_ESPEAK" = "xyes"; then
-	ESPEAK_LIBS="-lespeak"
-	ESPEAK_CFLAGS="-I/usr/include/espeak"
-	AC_CHECK_LIB([espeak], [espeak_Initialize],
-		AC_DEFINE(WITH_ESPEAK, 1, [Defined if you have espeak])
-		AC_SUBST(ESPEAK_CFLAGS)
-		AC_SUBST(ESPEAK_LIBS))
+ ESPEAK_LIBS="-lespeak"
+ ESPEAK_CFLAGS="-I/usr/include/espeak"
+ AC_CHECK_LIB([espeak], [espeak_Initialize],
+	AC_DEFINE(WITH_ESPEAK, 1, [Defined if you have espeak])
+	AC_SUBST(ESPEAK_CFLAGS)
+	AC_SUBST(ESPEAK_LIBS))
 else
   AC_MSG_ERROR([espeak is required.])
 fi
