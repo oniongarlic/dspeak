@@ -1,7 +1,6 @@
 SUBDIRS = gdspeak docs
 
-# DISTCHECK_CONFIGURE_FLAGS=--enable-gtk-doc
-DISTCHECK_CONFIGURE_FLAGS=
+DISTCHECK_CONFIGURE_FLAGS=--enable-gtk-doc
 
 .PHONY: ChangeLog
 ChangeLog:
