@@ -15,11 +15,11 @@ bin_PROGRAMS=gdspeak-client
 
 gdspeak_CFLAGS = $(GLIB_CFLAGS) $(ESPEAK_CFLAGS) $(GSTREAMER_CFLAGS)
 gdspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) $(GSTREAMER_LIBS) libgdspeak.la
-gdspeak_SOURCES=main.c dspeak-server-glue.h
+gdspeak_SOURCES=main.c gdspeak-server-glue.h
 
 gdspeak_client_CFLAGS = $(GLIB_CFLAGS)
 gdspeak_client_LDADD = $(GLIB_LIBS)
-gdspeak_client_SOURCES=client.c dspeak-client-glue.h
+gdspeak_client_SOURCES=client.c gdspeak-client-glue.h
 
 BUILT_SOURCES=gdspeak-server-glue.h gdspeak-client-glue.h gdspeak-marshal.c gdspeak-marshal.h
 
