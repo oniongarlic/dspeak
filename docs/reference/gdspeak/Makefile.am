@@ -25,7 +25,7 @@ SCANGOBJ_OPTIONS=
 
 # Extra options to supply to gtkdoc-scan.
 # e.g. SCAN_OPTIONS=--deprecated-guards="GTK_DISABLE_DEPRECATED"
-SCAN_OPTIONS=
+SCAN_OPTIONS=--rebuild-types
 
 # Extra options to supply to gtkdoc-mkdb.
 # e.g. MKDB_OPTIONS=--sgml-mode --output-format=xml
@@ -47,7 +47,7 @@ CFILE_GLOB= $(top_srcdir)/gdspeak/gdspeak.c
 
 # Header files to ignore when scanning.
 # e.g. IGNORE_HFILES=gtkdebug.h gtkintl.h
-IGNORE_HFILES=
+IGNORE_HFILES=gdspeak-server-glue.h gdspeak-marshal.h
 
 # Images to copy into HTML directory.
 # e.g. HTML_IMAGES=$(top_srcdir)/gtk/stock-icons/stock_about_24.png
