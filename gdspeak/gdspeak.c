@@ -806,7 +806,7 @@ s->priority=CLAMP(priority,0,255);
 s->sp.lang=NULL;
 if (lang && g_hash_table_lookup(p->voices, lang)!=NULL)
 	s->sp.lang=g_strdup(lang);
-else if (lang)
+else if (lang && lang[0]!=NULL)
 	g_warning("No such language: [%s]", lang);
 s->sp.pitch=pitch>-1 ? CLAMP(pitch, PITCH_MIN, PITCH_MAX) : -1;
 s->sp.range=range>-1 ? CLAMP(range, RANGE_MIN, RANGE_MAX) : -1;
