@@ -31,6 +31,22 @@
 
 #include "gdspeak.h"
 
+/**
+ * 
+ */
+static
+gchar *get_default_language(GHashTable *voices)
+{
+gchar *lcm;
+
+g_assert(voices);
+
+lcm=getenv("LC_MESSAGES");
+if (!lcm)
+	return g_strdup("en");
+
+}
+
 gint
 main(gint argc, gchar **argv)
 {
@@ -39,6 +55,7 @@ DBusGProxy *proxy;
 GError *error=NULL;
 GMainLoop *mainloop;
 Gdspeak *ds;
+gchar *lang;
 guint32 rname;
 
 g_type_init();
@@ -66,6 +83,9 @@ if (rname != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
 	return 1;
 
 ds=gdspeak_new();
+
+lang=get_default_language(gdspeak_list_voices(ds));
+
 dbus_g_connection_register_g_object(conn, GDSPEAK_PATH_DBUS, G_OBJECT(ds));
 
 g_main_loop_run(mainloop);
