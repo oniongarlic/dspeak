@@ -8,7 +8,7 @@ libgdspeak_la_LIBADD = $(ESPEAK_LIBS) $(GLIB_LIBS) $(GSTREAMER_LIBS)
 libgdspeak_la_LDFLAGS = -lm -no-undefined -version-info 0:0:0
 
 libgdspeak_includedir=$(includedir)/gdspeak/
-libgdspeak_include_HEADERS = gdspeak-client-glue.h
+libgdspeak_include_HEADERS = gdspeak.h gdspeak-client-glue.h
 
 libexec_PROGRAMS=gdspeak
 bin_PROGRAMS=gdspeak-client
