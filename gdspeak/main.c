@@ -20,6 +20,9 @@
 #include "config.h"
 #endif
 
+#include <stdlib.h>
+#include <string.h>
+
 #include <glib.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-glib.h>
@@ -32,7 +35,10 @@
 #include "gdspeak.h"
 
 /**
- * 
+ * get_default_language:
+ *
+ * Get default language code to use. Tries to get a language from the current locale.
+ *
  */
 static
 gchar *get_default_language(GHashTable *voices)
@@ -43,8 +49,20 @@ g_assert(voices);
 
 lcm=getenv("LC_MESSAGES");
 if (!lcm)
-	return g_strdup("en");
+	lcm=getenv("LANG");
+if (!lcm)
+	goto def;
+if (strlen(lcm)<2)
+	goto def;
+lcm=g_strndup(lcm, 2);
 
+if (g_hash_table_lookup_extended(voices, lcm, NULL, NULL)==TRUE)
+	return lcm;
+
+g_free(lcm);
+
+def:;
+return g_strdup("en");
 }
 
 gint
@@ -86,8 +104,16 @@ ds=gdspeak_new();
 
 lang=get_default_language(gdspeak_list_voices(ds));
 
+g_debug("Default language: %s", lang);
+
+gdspeak_set_voice(ds, lang);
+
 dbus_g_connection_register_g_object(conn, GDSPEAK_PATH_DBUS, G_OBJECT(ds));
 
 g_main_loop_run(mainloop);
+
+g_free(lang);
+g_object_unref(ds);
+
 return 0;
 }

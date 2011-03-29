@@ -1,4 +1,4 @@
-INCLUDES = -DDATADIR=\""$(datadir)"\" -DDBUS_API_SUBJECT_TO_CHANGE
+INCLUDES = -DDATADIR=\""$(datadir)"\" -DDBUS_API_SUBJECT_TO_CHANGE -DG_LOG_DOMAIN=\"gdspeak\"
 
 lib_LTLIBRARIES = libgdspeak.la
 
