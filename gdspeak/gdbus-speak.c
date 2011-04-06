@@ -48,6 +48,9 @@ gdbusspeak_timeout_exit(gpointer data)
 {
 Gdbusspeak *gs=(Gdbusspeak *)data;
 
+if (gdspeak_speaking(gs))
+	return TRUE;
+
 g_debug("Timeout, byebye");
 g_object_unref(gs);
 exit(0);
