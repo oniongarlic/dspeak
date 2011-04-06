@@ -24,8 +24,9 @@
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-bindings.h>
-#include "gdspeak.h"
 
+#include "gdspeak.h"
+#include "gdbus-speak.h"
 #include "gdspeak-client-glue.h"
 
 gint
@@ -62,7 +63,7 @@ if (!conn) {
 	return 1;
 }
 
-proxy=dbus_g_proxy_new_for_name(conn, GDSPEAK_NAME_DBUS, GDSPEAK_PATH_DBUS, GDSPEAK_INTERFACE_DBUS);
+proxy=dbus_g_proxy_new_for_name(conn, GDBUSSPEAK_NAME_DBUS, GDBUSSPEAK_PATH_DBUS, GDBUSSPEAK_INTERFACE_DBUS);
 
 if (argc==2) {
 	cr=org_tal_gdspeak_speak(proxy, txt, &r, &error);
