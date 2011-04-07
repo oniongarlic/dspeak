@@ -48,7 +48,7 @@ gdbusspeak_timeout_exit(gpointer data)
 {
 Gdbusspeak *gs=(Gdbusspeak *)data;
 
-if (gdspeak_speaking(gs))
+if (gdspeak_speaking(GDSPEAK(gs)))
 	return TRUE;
 
 g_debug("Timeout, byebye");
@@ -103,7 +103,6 @@ static void
 gdbusspeak_finalize(GObject *object)
 {
 Gdbusspeak *gs=GDBUSSPEAK(object);
-GdbusspeakPrivate *p;
 
 g_return_if_fail(gs);
 G_OBJECT_CLASS(gdbusspeak_parent_class)->finalize(object);
