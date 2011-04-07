@@ -20,6 +20,8 @@
 #include <config.h>
 #endif
 
+#include <stdlib.h>
+
 #include <glib.h>
 #include <dbus/dbus-protocol.h>
 #include <dbus/dbus-glib.h>
