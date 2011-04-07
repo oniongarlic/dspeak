@@ -42,8 +42,8 @@ FIXXREF_OPTIONS=
 # Used for dependencies. The docs will be rebuilt if any of these change.
 # e.g. HFILE_GLOB=$(top_srcdir)/gtk/*.h
 # e.g. CFILE_GLOB=$(top_srcdir)/gtk/*.c
-HFILE_GLOB= $(top_srcdir)/gdspeak/gdspeak.h
-CFILE_GLOB= $(top_srcdir)/gdspeak/gdspeak.c
+HFILE_GLOB= $(top_srcdir)/gdspeak/*.h
+CFILE_GLOB= $(top_srcdir)/gdspeak/*.c
 
 # Header files to ignore when scanning.
 # e.g. IGNORE_HFILES=gtkdebug.h gtkintl.h
@@ -68,7 +68,7 @@ expand_content_files=
 # e.g. INCLUDES=-I$(top_srcdir) -I$(top_builddir) $(GTK_DEBUG_FLAGS)
 # e.g. GTKDOC_LIBS=$(top_builddir)/gtk/$(gtktargetlib)
 INCLUDES=-I. $(GLIB_CFLAGS) -I$(top_srcdir)/src -I$(top_builddir)
-GTKDOC_LIBS=$(GLIB_LDFLAGS) $(top_srcdir)/gdspeak/libgdspeak.la
+GTKDOC_LIBS=$(GLIB_LDFLAGS) $(top_srcdir)/gdspeak/libgdspeak.la $(top_srcdir)/gdspeak/libgdbusspeak.la
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
 include $(top_srcdir)/gtk-doc.make

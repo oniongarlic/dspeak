@@ -33,6 +33,7 @@
 #endif
 
 #include "gdspeak.h"
+#include "gdbus-speak.h"
 
 /**
  * get_default_language:
@@ -72,7 +73,7 @@ DBusGConnection *conn;
 DBusGProxy *proxy;
 GError *error=NULL;
 GMainLoop *mainloop;
-Gdspeak *ds;
+Gdbusspeak *ds;
 gchar *lang;
 guint32 rname;
 
@@ -92,23 +93,23 @@ if (!conn) {
 
 proxy=dbus_g_proxy_new_for_name(conn, DBUS_SERVICE_DBUS, DBUS_PATH_DBUS, DBUS_INTERFACE_DBUS);
 
-if (!org_freedesktop_DBus_request_name(proxy, GDSPEAK_NAME_DBUS, 0, &rname, &error)) {
-	g_error ("Error registering D-Bus service %s: %s", GDSPEAK_NAME_DBUS, error->message);
+if (!org_freedesktop_DBus_request_name(proxy, GDBUSSPEAK_NAME_DBUS, 0, &rname, &error)) {
+	g_error ("Error registering D-Bus service %s: %s", GDBUSSPEAK_NAME_DBUS, error->message);
 	return 1;
 }
 
 if (rname != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
 	return 1;
 
-ds=gdspeak_new();
+ds=gdbusspeak_new();
 
-lang=get_default_language(gdspeak_list_voices(ds));
+lang=get_default_language(gdspeak_list_voices(GDSPEAK(ds)));
 
 g_debug("Default language: %s", lang);
 
-gdspeak_set_voice(ds, lang);
+gdspeak_set_voice(GDSPEAK(ds), lang);
 
-dbus_g_connection_register_g_object(conn, GDSPEAK_PATH_DBUS, G_OBJECT(ds));
+dbus_g_connection_register_g_object(conn, GDBUSSPEAK_PATH_DBUS, G_OBJECT(ds));
 
 g_main_loop_run(mainloop);
 

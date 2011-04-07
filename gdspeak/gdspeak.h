@@ -35,10 +35,6 @@ G_BEGIN_DECLS
 #define IS_GDSPEAK_CLASS(klass)		(G_TYPE_CHECK_CLASS_TYPE ((klass), GDSPEAK_TYPE))
 #define GDSPEAK_GET_CLASS(obj)		(G_TYPE_INSTANCE_GET_CLASS ((obj), GDSPEAK_TYPE, GdspeakClass))
 
-#define GDSPEAK_NAME_DBUS "org.tal.gdspeak"
-#define GDSPEAK_PATH_DBUS "/org/tal/gdspeak"
-#define GDSPEAK_INTERFACE_DBUS "org.tal.gdspeak"
-
 /** 
  * dspeak GObject
  */

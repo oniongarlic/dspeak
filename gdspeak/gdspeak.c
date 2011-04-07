@@ -608,8 +608,6 @@ object_class->finalize=gdspeak_finalize;
 object_class->set_property=gdspeak_set_property;
 object_class->get_property=gdspeak_get_property;
 
-dbus_g_object_type_install_info(gdspeak_get_type (), &dbus_glib_gdspeak_object_info);
-
 g_type_class_add_private(object_class, sizeof(GdspeakPrivate));
 
 /**
