@@ -16,7 +16,7 @@ libgdbusspeak_la_LIBADD = $(GLIB_LIBS) libgdspeak.la
 libgdbusspeak_la_LDFLAGS = -lm -no-undefined -version-info 0:0:0
 
 libgdbusspeak_includedir=$(includedir)/gdspeak/
-libgdbusspeak_include_HEADERS = gdspeak-client-glue.h
+libgdbusspeak_include_HEADERS = gdspeak-client-glue.h gdbus-speak.h
 
 libexec_PROGRAMS=gdspeak
 bin_PROGRAMS=gdspeak-client
