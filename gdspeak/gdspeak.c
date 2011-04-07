@@ -240,8 +240,11 @@ GdspeakPrivate *p=data;
 
 g_assert(p);
 
+#if 0
 espeak_Cancel();
+#endif
 gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 return FALSE;
 }
 
@@ -270,6 +273,7 @@ switch (GST_MESSAGE_TYPE(msg)) {
 		g_error_free(err);
 		p->ge.eos=TRUE;
 		gst_espeak_stop_cb(p);
+		/* XXX: Emit error signal */
 	break;
 	case GST_MESSAGE_STATE_CHANGED:
 		gst_message_parse_state_changed(msg, &oldstate, &newstate, &pending);
@@ -391,15 +395,13 @@ gchar *data;
 g_debug("W: %d (%d)", wav==NULL ? 0 : 1, numsamples);
 
 if (wav==NULL && g_queue_is_empty(p->sentences)==TRUE) {
-#if 0
-	p->ge.eos=TRUE;
 #if GST_CHECK_VERSION(0,10,22)
 	if (gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src))!=GST_FLOW_OK) {
 		g_warning("Failed to push EOS");
+		p->ge.eos=TRUE;
 	}
 #else
 	gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src));
-#endif
 #endif
 	return 0;
 } else if (wav==NULL && g_queue_is_empty(p->sentences)==FALSE) {
@@ -751,7 +753,7 @@ gdspeak_speak_next_sentence(GdspeakPrivate *p)
 g_debug("NS");
 
 #ifdef WITH_GST
-if (p->ge.eos==TRUE) {
+if (p->ge.eos==TRUE && g_queue_is_empty(p->sentences)==FALSE) {
 	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)gst_espeak_start_play, p, NULL);
 	return TRUE;
 }
