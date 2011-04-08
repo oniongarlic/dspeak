@@ -258,6 +258,8 @@ GstState pending;
 GError *err=NULL;
 GdspeakPrivate *p=data;
 
+g_assert(bus);
+g_assert(msg);
 g_assert(p);
 
 switch (GST_MESSAGE_TYPE(msg)) {
@@ -914,9 +916,23 @@ return espeak_Cancel()==EE_OK ? TRUE : FALSE;
 gboolean
 gdspeak_speaking(Gdspeak *gs)
 {
-g_return_val_if_fail(gs, FALSE);
+GdspeakPrivate *p;
 
+g_return_val_if_fail(gs, FALSE);
+p=GET_PRIVATE(gs);
+
+#ifdef WITH_GST
+GstState s;
+
+if (espeak_IsPlaying()==1)
+	return TRUE;
+gst_element_get_state(p->ge.pipeline, &s, NULL, GST_CLOCK_TIME_NONE);
+if (s==GST_STATE_PLAYING)
+	return TRUE;
+return FALSE;
+#else
 return espeak_IsPlaying()==1 ? TRUE : FALSE;
+#endif
 }
 
 /**
