@@ -240,8 +240,11 @@ GdspeakPrivate *p=data;
 
 g_assert(p);
 
+#if 0
 espeak_Cancel();
+#endif
 gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 return FALSE;
 }
 
@@ -255,24 +258,26 @@ GstState pending;
 GError *err=NULL;
 GdspeakPrivate *p=data;
 
+g_assert(bus);
+g_assert(msg);
 g_assert(p);
 
 switch (GST_MESSAGE_TYPE(msg)) {
 	case GST_MESSAGE_EOS:
 		g_debug("EOS from %s", GST_MESSAGE_SRC_NAME(msg));
 		p->ge.eos=TRUE;
-		g_timeout_add(500, (GSourceFunc)gst_espeak_stop_cb, p);
+		g_timeout_add(200, (GSourceFunc)gst_espeak_stop_cb, p);
 	break;
 	case GST_MESSAGE_ERROR:
 		gst_message_parse_error(msg, &err, &debug);
 		g_debug("Error: %s", err->message);
 		g_free(debug);
 		g_error_free(err);
-
+		p->ge.eos=TRUE;
 		gst_espeak_stop_cb(p);
+		/* XXX: Emit error signal */
 	break;
 	case GST_MESSAGE_STATE_CHANGED:
-		p->ge.eos=FALSE;
 		gst_message_parse_state_changed(msg, &oldstate, &newstate, &pending);
 		g_debug("GST: %s state changed (o=%d->n=%d => p=%d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
 
@@ -283,6 +288,7 @@ switch (GST_MESSAGE_TYPE(msg)) {
 		/* Pipe is going to pause, we can start pushing buffers */
 		if (pending==GST_STATE_PAUSED) {
 			g_debug("Preparing next sentence");
+			p->ge.eos=FALSE;
 			g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 		}
 	break;
@@ -306,7 +312,7 @@ g_return_val_if_fail(p->ge.src, FALSE);
 #if GST_CHECK_VERSION(0,10,22)
 gst_app_src_set_size(GST_APP_SRC(p->ge.src), -1);
 gst_app_src_set_stream_type(GST_APP_SRC(p->ge.src), GST_APP_STREAM_TYPE_STREAM);
-/* g_object_set(GST_APP_SRC(p->ge.src), "block", TRUE, NULL); */
+g_object_set(GST_APP_SRC(p->ge.src), "block", TRUE, NULL);
 g_object_set(GST_APP_SRC(p->ge.src), "is-live", TRUE, NULL);
 #endif
 
@@ -376,6 +382,7 @@ GdspeakPrivate *p=data;
 g_assert(p);
 
 g_debug("PLAYING");
+p->ge.eos=FALSE;
 if (gst_element_set_state(p->ge.pipeline, GST_STATE_PLAYING)==GST_STATE_CHANGE_FAILURE)
 	g_warning("Failed to play pipeline");
 return FALSE;
@@ -389,17 +396,24 @@ gchar *data;
 
 g_debug("W: %d (%d)", wav==NULL ? 0 : 1, numsamples);
 
-if (wav==NULL) {
+if (wav==NULL && g_queue_is_empty(p->sentences)==TRUE) {
 #if GST_CHECK_VERSION(0,10,22)
-	if (gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src))!=GST_FLOW_OK)
+	if (gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src))!=GST_FLOW_OK) {
 		g_warning("Failed to push EOS");
+		p->ge.eos=TRUE;
+	}
 #else
 	gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src));
 #endif
-	p->ge.eos=TRUE;
+	return 0;
+} else if (wav==NULL && g_queue_is_empty(p->sentences)==FALSE) {
+	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 	return 0;
 }
+
 if (numsamples>0) {
+	GstFlowReturn fr;
+
 	g_debug("Adding speach buffer %d", numsamples);
 
 	numsamples=numsamples*2;
@@ -407,8 +421,8 @@ if (numsamples>0) {
 	buf=gst_app_buffer_new(data, numsamples, gst_espeak_buffer_free, data);
 	gst_buffer_set_caps(buf, p->ge.srccaps);
 #if GST_CHECK_VERSION(0,10,22)
-	if (gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf)!=GST_FLOW_OK)
-		g_warning("Failed to push buffer");
+	if ((fr=gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf))!=GST_FLOW_OK)
+		g_warning("Failed to push buffer: %d", fr);
 #else
 	gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf);
 #endif
@@ -658,7 +672,8 @@ p->sentences=g_queue_new();
 p->id=1;
 
 #ifdef WITH_GST
-p->srate=espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 200, NULL, 0);
+/* p->srate=espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 200, NULL, 0); */
+p->srate=espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 200, NULL, 0);
 #else
 p->srate=espeak_Initialize(AUDIO_OUTPUT_PLAYBACK, 250, NULL, 0);
 #endif
@@ -718,6 +733,7 @@ return p->voices;
 static gboolean
 gdspeak_push_sentence(GdspeakPrivate *p, Sentence *s)
 {
+g_debug("PS");
 switch (s->priority) {
 	case 0:
 	case 1:
@@ -739,7 +755,7 @@ gdspeak_speak_next_sentence(GdspeakPrivate *p)
 g_debug("NS");
 
 #ifdef WITH_GST
-if (p->ge.eos==TRUE) {
+if (p->ge.eos==TRUE && g_queue_is_empty(p->sentences)==FALSE) {
 	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)gst_espeak_start_play, p, NULL);
 	return TRUE;
 }
@@ -813,8 +829,12 @@ s->sp.volume=volume>-1 ? CLAMP(volume, VOL_MIN, VOL_MAX) : -1;
 s->data=gs;
 
 gdspeak_push_sentence(p, s);
+#ifdef WITH_GST
+	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
+#else
 if (espeak_IsPlaying()!=1)
 	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
+#endif
 return s->id;
 }
 
@@ -896,9 +916,23 @@ return espeak_Cancel()==EE_OK ? TRUE : FALSE;
 gboolean
 gdspeak_speaking(Gdspeak *gs)
 {
-g_return_val_if_fail(gs, FALSE);
+GdspeakPrivate *p;
 
+g_return_val_if_fail(gs, FALSE);
+p=GET_PRIVATE(gs);
+
+#ifdef WITH_GST
+GstState s;
+
+if (espeak_IsPlaying()==1)
+	return TRUE;
+gst_element_get_state(p->ge.pipeline, &s, NULL, GST_CLOCK_TIME_NONE);
+if (s==GST_STATE_PLAYING)
+	return TRUE;
+return FALSE;
+#else
 return espeak_IsPlaying()==1 ? TRUE : FALSE;
+#endif
 }
 
 /**

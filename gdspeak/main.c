@@ -116,5 +116,9 @@ g_main_loop_run(mainloop);
 g_free(lang);
 g_object_unref(ds);
 
+#ifdef WITH_GST
+gst_deinit();
+#endif
+
 return 0;
 }
