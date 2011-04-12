@@ -233,21 +233,6 @@ return FALSE;
  */
 #ifdef WITH_GST
 
-static gboolean 
-gst_espeak_stop_cb(gpointer data)
-{
-GdspeakPrivate *p=data;
-
-g_assert(p);
-
-#if 0
-espeak_Cancel();
-#endif
-gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
-g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
-return FALSE;
-}
-
 static gboolean
 gst_espeak_bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 {
@@ -265,8 +250,9 @@ g_assert(p);
 switch (GST_MESSAGE_TYPE(msg)) {
 	case GST_MESSAGE_EOS:
 		g_debug("EOS from %s", GST_MESSAGE_SRC_NAME(msg));
+		gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
 		p->ge.eos=TRUE;
-		g_timeout_add(200, (GSourceFunc)gst_espeak_stop_cb, p);
+		g_timeout_add(100, (GSourceFunc)gdspeak_speak_next_sentence, p);
 	break;
 	case GST_MESSAGE_ERROR:
 		gst_message_parse_error(msg, &err, &debug);
@@ -274,20 +260,20 @@ switch (GST_MESSAGE_TYPE(msg)) {
 		g_free(debug);
 		g_error_free(err);
 		p->ge.eos=TRUE;
-		gst_espeak_stop_cb(p);
-		/* XXX: Emit error signal */
+		gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
 	break;
 	case GST_MESSAGE_STATE_CHANGED:
 		gst_message_parse_state_changed(msg, &oldstate, &newstate, &pending);
-		g_debug("GST: %s state changed (o=%d->n=%d => p=%d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
 
 		/* We are only interested in pipeline messages */
 		if (GST_MESSAGE_SRC(msg)!=GST_OBJECT(p->ge.pipeline))
 			return TRUE;
 
-		/* Pipe is going to pause, we can start pushing buffers */
-		if (pending==GST_STATE_PAUSED) {
-			g_debug("Preparing next sentence");
+		g_debug("GST: %s state changed (o=%d->n=%d => p=%d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
+
+		/* Pipe is going to play, we can start pushing buffers */
+		if (pending==GST_STATE_PLAYING) {
+			g_debug("PNS");
 			p->ge.eos=FALSE;
 			g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 		}
@@ -703,11 +689,7 @@ for (i=(espeak_VOICE **)vs; *i; i++) {
 
 #ifdef WITH_GST
 gst_espeak_create_pipeline(p);
-if (gst_element_set_state(p->ge.pipeline, GST_STATE_PLAYING)==GST_STATE_CHANGE_FAILURE) {
-	g_warning("Failed to prepare pipeline to paused.");
-}
 #endif
-
 }
 
 /**
@@ -756,9 +738,11 @@ g_debug("NS");
 
 #ifdef WITH_GST
 if (p->ge.eos==TRUE && g_queue_is_empty(p->sentences)==FALSE) {
+	gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
 	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)gst_espeak_start_play, p, NULL);
 	return TRUE;
-}
+} else if (p->ge.eos==TRUE)
+	return FALSE;
 #endif
 
 p->cs=g_queue_pop_head(p->sentences);
@@ -769,6 +753,10 @@ if (!p->cs) {
 if (p->cs->priority==0) {
 	g_debug("P0");
 	espeak_Cancel();
+#ifdef WITH_GST
+	gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+	gst_espeak_start_play(p);
+#endif
 }
 g_debug("SP");
 if (speak_sentence(p->cs)==FALSE) {
@@ -830,6 +818,7 @@ s->data=gs;
 
 gdspeak_push_sentence(p, s);
 #ifdef WITH_GST
+if (p->ge.eos==TRUE)
 	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 #else
 if (espeak_IsPlaying()!=1)
@@ -902,7 +891,17 @@ g_queue_foreach(p->sentences, (GFunc)sentence_free, NULL);
 gboolean
 gdspeak_stop(Gdspeak *gs, gboolean clear)
 {
+GdspeakPrivate *p;
+
 g_return_val_if_fail(gs, FALSE);
+
+p=GET_PRIVATE(gs);
+
+#ifdef WITH_GST
+gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+p->ge.eos=TRUE;
+#endif
+
 if (clear)
 	gdspeak_clear(gs);
 return espeak_Cancel()==EE_OK ? TRUE : FALSE;
