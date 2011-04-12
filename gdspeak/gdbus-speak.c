@@ -47,8 +47,17 @@ static gboolean
 gdbusspeak_timeout_exit(gpointer data)
 {
 Gdbusspeak *gs=(Gdbusspeak *)data;
+guint et;
+time_t ct;
 
 if (gdspeak_speaking(GDSPEAK(gs)))
+	return TRUE;
+ct=time(NULL);
+
+g_object_get(gs, "et", &et, NULL);
+
+g_debug("%d - %d = %d", ct, et, ct-et);
+if (ct-et<60)
 	return TRUE;
 
 g_debug("Timeout, byebye");

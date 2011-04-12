@@ -78,6 +78,7 @@ enum {
 	PROP_RANGE,
 	PROP_RATE,
 	PROP_VOLUME,
+	PROP_EVENT_TIME,
 };
 
 #ifdef WITH_GST
@@ -145,6 +146,7 @@ struct _GdspeakPrivate {
 	gint srate;
 	SProperties sp;
 	guint32 id;
+	time_t et;
 };
 
 #define GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GDSPEAK_TYPE, GdspeakPrivate))
@@ -211,6 +213,8 @@ espeak_set_properties(&s->sp);
 
 g_debug("Speak: [%s] (%zu)", text, tlen);
 ee=espeak_Synth(text, tlen+1, 0, POS_CHARACTER, 0, espeakCHARS_UTF8 | espeakENDPAUSE, &s->id, s->data);
+sentence_free(s);
+
 switch (ee) {
 	case EE_OK:
 		return TRUE;
@@ -233,21 +237,6 @@ return FALSE;
  */
 #ifdef WITH_GST
 
-static gboolean 
-gst_espeak_stop_cb(gpointer data)
-{
-GdspeakPrivate *p=data;
-
-g_assert(p);
-
-#if 0
-espeak_Cancel();
-#endif
-gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
-g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
-return FALSE;
-}
-
 static gboolean
 gst_espeak_bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 {
@@ -265,8 +254,9 @@ g_assert(p);
 switch (GST_MESSAGE_TYPE(msg)) {
 	case GST_MESSAGE_EOS:
 		g_debug("EOS from %s", GST_MESSAGE_SRC_NAME(msg));
+		gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
 		p->ge.eos=TRUE;
-		g_timeout_add(200, (GSourceFunc)gst_espeak_stop_cb, p);
+		g_timeout_add(100, (GSourceFunc)gdspeak_speak_next_sentence, p);
 	break;
 	case GST_MESSAGE_ERROR:
 		gst_message_parse_error(msg, &err, &debug);
@@ -274,20 +264,20 @@ switch (GST_MESSAGE_TYPE(msg)) {
 		g_free(debug);
 		g_error_free(err);
 		p->ge.eos=TRUE;
-		gst_espeak_stop_cb(p);
-		/* XXX: Emit error signal */
+		gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
 	break;
 	case GST_MESSAGE_STATE_CHANGED:
 		gst_message_parse_state_changed(msg, &oldstate, &newstate, &pending);
-		g_debug("GST: %s state changed (o=%d->n=%d => p=%d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
 
 		/* We are only interested in pipeline messages */
 		if (GST_MESSAGE_SRC(msg)!=GST_OBJECT(p->ge.pipeline))
 			return TRUE;
 
-		/* Pipe is going to pause, we can start pushing buffers */
-		if (pending==GST_STATE_PAUSED) {
-			g_debug("Preparing next sentence");
+		g_debug("GST: %s state changed (o=%d->n=%d => p=%d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
+
+		/* Pipe is going to play, we can start pushing buffers */
+		if (pending==GST_STATE_PLAYING) {
+			g_debug("PNS");
 			p->ge.eos=FALSE;
 			g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 		}
@@ -314,6 +304,8 @@ gst_app_src_set_size(GST_APP_SRC(p->ge.src), -1);
 gst_app_src_set_stream_type(GST_APP_SRC(p->ge.src), GST_APP_STREAM_TYPE_STREAM);
 g_object_set(GST_APP_SRC(p->ge.src), "block", TRUE, NULL);
 g_object_set(GST_APP_SRC(p->ge.src), "is-live", TRUE, NULL);
+gst_app_src_set_size(p->ge.src, -1);
+gst_app_src_set_max_bytes(p->ge.src, 2048);
 #endif
 
 p->ge.srccaps=gst_caps_new_simple("audio/x-raw-int",
@@ -331,6 +323,7 @@ g_return_val_if_fail(p->ge.ac, FALSE);
 
 p->ge.queue=gst_element_factory_make("queue", "queue");
 g_return_val_if_fail(p->ge.queue, FALSE);
+g_object_set(p->ge.queue, "max-size-buffers", 2, NULL);
 
 p->ge.sink=gst_element_factory_make(AUDIO_SINK, "sink");
 g_return_val_if_fail(p->ge.sink, FALSE);
@@ -388,7 +381,7 @@ if (gst_element_set_state(p->ge.pipeline, GST_STATE_PLAYING)==GST_STATE_CHANGE_F
 return FALSE;
 }
 
-static int 
+static void
 gst_espeak_cb(GdspeakPrivate *p, short *wav, int numsamples)
 {
 GstBuffer *buf;
@@ -405,16 +398,14 @@ if (wav==NULL && g_queue_is_empty(p->sentences)==TRUE) {
 #else
 	gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src));
 #endif
-	return 0;
+	return;
 } else if (wav==NULL && g_queue_is_empty(p->sentences)==FALSE) {
 	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
-	return 0;
+	return;
 }
 
 if (numsamples>0) {
 	GstFlowReturn fr;
-
-	g_debug("Adding speach buffer %d", numsamples);
 
 	numsamples=numsamples*2;
 	data=g_memdup(wav, numsamples);
@@ -427,8 +418,8 @@ if (numsamples>0) {
 	gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf);
 #endif
 }
-return 0;
 }
+
 #endif
 
 /**
@@ -453,6 +444,8 @@ p=GET_PRIVATE(ds);
 #ifdef WITH_GST
 gst_espeak_cb(p, wav, numsamples);
 #endif
+
+p->et=time(NULL);
 
 for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 	g_debug("SCB: id=%d type=%d pos=%d len=%d apos=%d", e->unique_identifier, e->type, e->text_position, e->length, e->audio_position);
@@ -484,8 +477,6 @@ for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 	case espeakEVENT_MSG_TERMINATED:
 		g_debug("MT:");
 		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_END], 0, e->unique_identifier, NULL);
-		sentence_free(p->cs);
-		p->cs=NULL;
 		if (g_queue_is_empty(p->sentences)==FALSE)
 			g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 	break;
@@ -591,6 +582,9 @@ switch (prop_id) {
 		p->sp.volume=espeak_GetParameter(espeakVOLUME, 1);
 		g_value_set_int(value, p->sp.volume);
 	break;
+	case PROP_EVENT_TIME:
+		g_value_set_uint(value, p->et);
+	break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
 	break;
@@ -638,6 +632,9 @@ g_object_class_install_property(object_class, PROP_RATE, pspec);
 pspec=g_param_spec_uint("volume", "Volume", "Speech volume", VOL_MIN, VOL_MAX, 50, G_PARAM_READWRITE);
 g_object_class_install_property(object_class, PROP_VOLUME, pspec);
 
+pspec=g_param_spec_uint("et", "Event time", "Last event time", 0, G_MAXUINT, 0, G_PARAM_READABLE);
+g_object_class_install_property(object_class, PROP_EVENT_TIME, pspec);
+
 /**
  * Signals **/
 signals[SIGNAL_START]=
@@ -672,8 +669,11 @@ p->sentences=g_queue_new();
 p->id=1;
 
 #ifdef WITH_GST
-/* p->srate=espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 200, NULL, 0); */
-p->srate=espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 200, NULL, 0);
+#if 1
+p->srate=espeak_Initialize(AUDIO_OUTPUT_RETRIEVAL, 100, NULL, 0);
+#else
+p->srate=espeak_Initialize(AUDIO_OUTPUT_SYNCHRONOUS, 100, NULL, 0);
+#endif
 #else
 p->srate=espeak_Initialize(AUDIO_OUTPUT_PLAYBACK, 250, NULL, 0);
 #endif
@@ -703,11 +703,7 @@ for (i=(espeak_VOICE **)vs; *i; i++) {
 
 #ifdef WITH_GST
 gst_espeak_create_pipeline(p);
-if (gst_element_set_state(p->ge.pipeline, GST_STATE_PLAYING)==GST_STATE_CHANGE_FAILURE) {
-	g_warning("Failed to prepare pipeline to paused.");
-}
 #endif
-
 }
 
 /**
@@ -756,9 +752,11 @@ g_debug("NS");
 
 #ifdef WITH_GST
 if (p->ge.eos==TRUE && g_queue_is_empty(p->sentences)==FALSE) {
+	gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
 	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)gst_espeak_start_play, p, NULL);
 	return TRUE;
-}
+} else if (p->ge.eos==TRUE)
+	return FALSE;
 #endif
 
 p->cs=g_queue_pop_head(p->sentences);
@@ -769,13 +767,14 @@ if (!p->cs) {
 if (p->cs->priority==0) {
 	g_debug("P0");
 	espeak_Cancel();
+#ifdef WITH_GST
+	gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+	gst_espeak_start_play(p);
+#endif
 }
 g_debug("SP");
-if (speak_sentence(p->cs)==FALSE) {
+if (speak_sentence(p->cs)==FALSE)
 	g_warning("Failed to speak");
-	sentence_free(p->cs);
-	p->cs=NULL;
-}
 return FALSE;
 }
 
@@ -820,7 +819,7 @@ s->priority=CLAMP(priority,0,255);
 s->sp.lang=NULL;
 if (lang && g_hash_table_lookup(p->voices, lang)!=NULL)
 	s->sp.lang=g_strdup(lang);
-else if (lang && lang[0]!=NULL)
+else if (lang && lang[0]!=0)
 	g_warning("No such language: [%s]", lang);
 s->sp.pitch=pitch>-1 ? CLAMP(pitch, PITCH_MIN, PITCH_MAX) : -1;
 s->sp.range=range>-1 ? CLAMP(range, RANGE_MIN, RANGE_MAX) : -1;
@@ -830,6 +829,7 @@ s->data=gs;
 
 gdspeak_push_sentence(p, s);
 #ifdef WITH_GST
+if (p->ge.eos==TRUE)
 	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 #else
 if (espeak_IsPlaying()!=1)
@@ -902,7 +902,17 @@ g_queue_foreach(p->sentences, (GFunc)sentence_free, NULL);
 gboolean
 gdspeak_stop(Gdspeak *gs, gboolean clear)
 {
+GdspeakPrivate *p;
+
 g_return_val_if_fail(gs, FALSE);
+
+p=GET_PRIVATE(gs);
+
+#ifdef WITH_GST
+gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+p->ge.eos=TRUE;
+#endif
+
 if (clear)
 	gdspeak_clear(gs);
 return espeak_Cancel()==EE_OK ? TRUE : FALSE;
