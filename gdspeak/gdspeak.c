@@ -726,6 +726,14 @@ GdspeakPrivate *p=GET_PRIVATE(gs);
 return p->voices;
 }
 
+guint *
+gdspeak_voices(Gdspeak *gs)
+{
+GdspeakPrivate *p=GET_PRIVATE(gs);
+
+return g_hash_table_size(p->voices);
+}
+
 static gboolean
 gdspeak_push_sentence(GdspeakPrivate *p, Sentence *s)
 {
