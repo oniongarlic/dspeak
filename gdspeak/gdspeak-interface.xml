@@ -42,6 +42,11 @@
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
 	</arg>
     </method>
+    <method name="GetVoice">
+	<arg type="s" direction="out" >
+   	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
+	</arg>
+    </method>
     <method name="ListVoices">
 	<arg type="a{ss}" direction="out" >
    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>

@@ -967,3 +967,19 @@ g_return_val_if_fail(gs, FALSE);
 
 return espeak_SetVoiceByName(voice)==EE_OK ? TRUE : FALSE;
 }
+
+/**
+ * gdspeak_get_voice:
+ *
+ * Get the current voice.
+ *
+ * Returns: The current voice id.
+ */
+gchar *
+gdspeak_get_voice(Gdspeak *gs)
+{
+g_return_val_if_fail(gs, FALSE);
+
+return espeak_GetCurrentVoice();
+}
+
