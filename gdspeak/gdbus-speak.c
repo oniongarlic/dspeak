@@ -36,7 +36,7 @@
 
 G_DEFINE_TYPE(Gdbusspeak, gdbusspeak, GDSPEAK_TYPE);
 
-#define TIMEOUT_SECS (60)
+#define TIMEOUT_SECS (120)
 
 typedef struct _GdbusspeakPrivate GdbusspeakPrivate;
 struct _GdbusspeakPrivate {
