@@ -45,7 +45,6 @@
 
 #include "gdspeak-marshal.h"
 #include "gdspeak-server-glue.h"
-
 #define DEFAULT_VOICE "en"
 
 #define PITCH_MIN (0)
@@ -140,6 +139,7 @@ struct _GdspeakPrivate {
 	GQueue *sentences;
 	GHashTable *voices;
 	GHashTable *current;
+	gchar *dvoice;
 	Sentence *cs;
 #ifdef WITH_GST
 	GstEspeak ge;
@@ -669,6 +669,7 @@ p=GET_PRIVATE(gs);
 
 p->sentences=g_queue_new();
 p->id=1;
+p->dvoice=g_strdup(DEFAULT_VOICE);
 
 #ifdef WITH_GST
 #if 1
@@ -690,7 +691,7 @@ p->sp.pitch=50;
 p->sp.range=50;
 p->sp.rate=espeakRATE_NORMAL;
 p->sp.volume=50;
-p->sp.lang=g_strdup(DEFAULT_VOICE);
+p->sp.lang=g_strdup(p->dvoice);
 
 espeak_set_properties(&p->sp);
 
@@ -835,8 +836,8 @@ s->priority=CLAMP(priority,0,255);
 s->sp.lang=NULL;
 if (lang && g_hash_table_lookup(p->voices, lang)!=NULL)
 	s->sp.lang=g_strdup(lang);
-else if (lang && lang[0]!=0)
-	g_warning("No such language: [%s]", lang);
+else
+	s->sp.lang=g_strdup(p->dvoice);
 s->sp.pitch=pitch>-1 ? CLAMP(pitch, PITCH_MIN, PITCH_MAX) : -1;
 s->sp.range=range>-1 ? CLAMP(range, RANGE_MIN, RANGE_MAX) : -1;
 s->sp.rate=rate>-1 ? CLAMP(rate, espeakRATE_MINIMUM, espeakRATE_MAXIMUM) : -1;
@@ -977,6 +978,29 @@ g_return_val_if_fail(gs, FALSE);
 
 p=GET_PRIVATE(gs);
 return espeak_SetVoiceByName(voice)==EE_OK ? TRUE : FALSE;
+}
+
+/**
+ * gdspeak_set_default_voice:
+ *
+ * Set the default voice to use if nothing else is specified.
+ *
+ */
+gboolean
+gdspeak_set_default_voice(Gdspeak *gs, const gchar *voice)
+{
+GdspeakPrivate *p;
+
+g_return_val_if_fail(gs, FALSE);
+
+p=GET_PRIVATE(gs);
+
+if (g_hash_table_lookup_extended(p->voices, voice, NULL, NULL)==FALSE)
+	return FALSE;
+
+g_free(p->dvoice);
+p->dvoice=g_strdup(voice);
+return TRUE;
 }
 
 /**
