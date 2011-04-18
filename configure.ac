@@ -31,8 +31,7 @@ AC_ARG_ENABLE([gst],AS_HELP_STRING([--enable-gst],[Use gstreamer for audio playb
 
 AC_ARG_WITH([gstsink],[--with-gstsink=alsasink],[AUDIO_SINK=${with_gstsink}],[AUDIO_SINK=alsasink])
 
-# PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1 gconf-2.0)
-PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1)
+PKG_CHECK_MODULES(GLIB, glib-2.0 dbus-1 dbus-glib-1 gconf-2.0)
 
 AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
 AC_PATH_PROG(DBUS_BINDING_TOOL, dbus-binding-tool)
