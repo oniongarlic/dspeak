@@ -914,7 +914,9 @@ g_queue_foreach(p->sentences, (GFunc)sentence_free, NULL);
 /**
  * gdspeak_stop:
  *
+ * Stop speech output, with optional queue clear.
  *
+ * Returns: TRUE if speech output was stopped. FALSE otherwise.
  */
 gboolean
 gdspeak_stop(Gdspeak *gs, gboolean clear)
@@ -938,7 +940,9 @@ return espeak_Cancel()==EE_OK ? TRUE : FALSE;
 /**
  * gdspeak_speaking:
  *
+ * Check if we are speaking a sentence.
  *
+ * Returns: TRUE if a sentence is being played, FALSE if not.
  */
 gboolean
 gdspeak_speaking(Gdspeak *gs)
@@ -985,6 +989,7 @@ return espeak_SetVoiceByName(voice)==EE_OK ? TRUE : FALSE;
  *
  * Set the default voice to use if nothing else is specified.
  *
+ * Returns: TRUE if voice was available and set, FALSE if voice was not found.
  */
 gboolean
 gdspeak_set_default_voice(Gdspeak *gs, const gchar *voice)
