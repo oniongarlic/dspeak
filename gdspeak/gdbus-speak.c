@@ -36,6 +36,8 @@
 
 G_DEFINE_TYPE(Gdbusspeak, gdbusspeak, GDSPEAK_TYPE);
 
+#define TIMEOUT_SECS (60)
+
 typedef struct _GdbusspeakPrivate GdbusspeakPrivate;
 struct _GdbusspeakPrivate {
 	gint ts_src;
@@ -89,9 +91,9 @@ p=GET_PRIVATE(gs);
 
 gdbusspeak_remove_timeout(gs);
 #if GLIB_CHECK_VERSION(2,14,0)
-p->ts_src=g_timeout_add_seconds(60, gdbusspeak_timeout_exit, gs);
+p->ts_src=g_timeout_add_seconds(TIMEOUT_SECS, gdbusspeak_timeout_exit, gs);
 #else
-p->ts_src=g_timeout_add(60*1000, gdbusspeak_timeout_exit, gs);
+p->ts_src=g_timeout_add(TIMEOUT_SECS*1000, gdbusspeak_timeout_exit, gs);
 #endif
 }
 
@@ -147,3 +149,4 @@ gdbusspeak_new(void)
 {
 return g_object_new(GDBUSSPEAK_TYPE, NULL);
 }
+
