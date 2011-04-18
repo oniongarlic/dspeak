@@ -124,7 +124,7 @@ gint
 main(gint argc, gchar **argv)
 {
 GError *error=NULL;
-guint32 rname;
+guint32 rname, stmp;
 
 g_type_init();
 
@@ -168,6 +168,17 @@ gconf_client_suggest_sync(client, NULL);
 
 g_free(lang);
 lang=NULL;
+
+stmp=gconf_client_get_int(client, GDS_GCONF_PITCH, NULL);
+if (stmp>0)
+	g_object_set(ds, "pitch", stmp, NULL);
+stmp=gconf_client_get_int(client, GDS_GCONF_RANGE, NULL);
+if (stmp>0)
+	g_object_set(ds, "range", stmp, NULL);
+stmp=gconf_client_get_int(client, GDS_GCONF_RATE, NULL);
+if (stmp>0)
+	g_object_set(ds, "rate", stmp, NULL);
+
 
 gconf_client_add_dir(client, GDS_GCONF_PATH, GCONF_CLIENT_PRELOAD_ONELEVEL, NULL);
 gconf_client_notify_add(client, GDS_GCONF_PATH, settings_changed_cb, ds, NULL, NULL);
