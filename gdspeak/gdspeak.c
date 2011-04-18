@@ -139,6 +139,7 @@ typedef struct _GdspeakPrivate GdspeakPrivate;
 struct _GdspeakPrivate {
 	GQueue *sentences;
 	GHashTable *voices;
+	GHashTable *current;
 	Sentence *cs;
 #ifdef WITH_GST
 	GstEspeak ge;
@@ -518,6 +519,7 @@ G_OBJECT_CLASS(gdspeak_parent_class)->finalize(object);
 
 p=GET_PRIVATE(gs);
 g_hash_table_destroy(p->voices);
+g_hash_table_destroy(p->current);
 #ifdef WITH_GST
 gst_espeak_destroy_pipeline(p);
 #endif
@@ -694,6 +696,7 @@ espeak_set_properties(&p->sp);
 
 vs=espeak_ListVoices(NULL);
 p->voices=g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
+p->current=g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
 
 for (i=(espeak_VOICE **)vs; *i; i++) {
 	espeak_VOICE *v=*i;
@@ -718,6 +721,11 @@ gdspeak_new(void)
 return g_object_new(GDSPEAK_TYPE, NULL);
 }
 
+/**
+ * gdspeak_list_voices:
+ *
+ * Get a list of voices available.
+ */
 GHashTable *
 gdspeak_list_voices(Gdspeak *gs)
 {
@@ -726,7 +734,7 @@ GdspeakPrivate *p=GET_PRIVATE(gs);
 return p->voices;
 }
 
-guint *
+guint
 gdspeak_voices(Gdspeak *gs)
 {
 GdspeakPrivate *p=GET_PRIVATE(gs);
@@ -963,8 +971,11 @@ return espeak_IsPlaying()==1 ? TRUE : FALSE;
 gboolean
 gdspeak_set_voice(Gdspeak *gs, const gchar *voice)
 {
+GdspeakPrivate *p;
+
 g_return_val_if_fail(gs, FALSE);
 
+p=GET_PRIVATE(gs);
 return espeak_SetVoiceByName(voice)==EE_OK ? TRUE : FALSE;
 }
 
@@ -975,11 +986,24 @@ return espeak_SetVoiceByName(voice)==EE_OK ? TRUE : FALSE;
  *
  * Returns: The current voice id.
  */
-gchar *
+GHashTable *
 gdspeak_get_voice(Gdspeak *gs)
 {
+espeak_VOICE *cv;
+GdspeakPrivate *p;
+
 g_return_val_if_fail(gs, FALSE);
 
-return espeak_GetCurrentVoice();
+p=GET_PRIVATE(gs);
+
+cv=espeak_GetCurrentVoice();
+
+g_hash_table_insert(p->current, g_strdup("name"), g_strdup(cv->name));
+g_hash_table_insert(p->current, g_strdup("languages"), g_strdup(cv->languages));
+g_hash_table_insert(p->current, g_strdup("identifier"), g_strdup(cv->identifier));
+g_hash_table_insert(p->current, g_strdup("gender"), g_strdup_printf("%d", cv->gender ));
+g_hash_table_insert(p->current, g_strdup("age"), g_strdup_printf("%d", cv->age));
+
+return p->current;
 }
 

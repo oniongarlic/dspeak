@@ -64,9 +64,9 @@ void gdspeak_clear(Gdspeak *gs);
 gboolean gdspeak_speaking(Gdspeak *gds);
 
 gboolean gdspeak_set_voice(Gdspeak *gs, const gchar *voice);
-gchar *gdspeak_get_voice(Gdspeak *gs);
+GHashTable *gdspeak_get_voice(Gdspeak *gs);
 
-guint *gdspeak_voices(Gdspeak *gs);
+guint gdspeak_voices(Gdspeak *gs);
 GHashTable *gdspeak_list_voices(Gdspeak *gs);
 
 G_END_DECLS

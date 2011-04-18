@@ -17,7 +17,7 @@
     </method>
     <method name="Speak">
     	<arg type="s" name="txt" direction="in" />
-		<arg type="b" direction="out" >
+	<arg type="b" direction="out" >
     	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
   	</arg>
     </method>
@@ -43,7 +43,7 @@
 	</arg>
     </method>
     <method name="GetVoice">
-	<arg type="s" direction="out" >
+	<arg type="a{ss}" direction="out" >
    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
 	</arg>
     </method>
@@ -57,6 +57,7 @@
    	<annotation name="org.freedesktop.DBus.GLib.ReturnVal" value=""/>
 	</arg>
     </method>
+
     <signal name="SpeakStart">
 	<arg type="i" name="uid" />
     </signal>
