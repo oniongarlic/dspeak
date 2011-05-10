@@ -68,7 +68,7 @@ expand_content_files=
 # e.g. INCLUDES=-I$(top_srcdir) -I$(top_builddir) $(GTK_DEBUG_FLAGS)
 # e.g. GTKDOC_LIBS=$(top_builddir)/gtk/$(gtktargetlib)
 INCLUDES=-I. $(GLIB_CFLAGS) -I$(top_srcdir)/src -I$(top_builddir)
-GTKDOC_LIBS=$(GLIB_LDFLAGS) $(top_srcdir)/gdspeak/libgdspeak.la $(top_srcdir)/gdspeak/libgdbusspeak.la
+GTKDOC_LIBS=$(GLIB_LDFLAGS) $(top_builddir)/gdspeak/libgdspeak.la $(top_builddir)/gdspeak/libgdbusspeak.la
 
 # This includes the standard gtk-doc make rules, copied by gtkdocize.
 include $(top_srcdir)/gtk-doc.make
