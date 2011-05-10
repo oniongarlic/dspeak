@@ -22,7 +22,7 @@ libexec_PROGRAMS=gdspeak
 bin_PROGRAMS=gdspeak-client
 
 gdspeak_CFLAGS = $(GLIB_CFLAGS) $(ESPEAK_CFLAGS) $(GSTREAMER_CFLAGS)
-gdspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) $(GSTREAMER_LIBS) libgdbusspeak.la
+gdspeak_LDADD = $(GLIB_LIBS) $(ESPEAK_LIBS) $(GSTREAMER_LIBS) libgdspeak.la libgdbusspeak.la
 gdspeak_SOURCES=main.c gdspeak-server-glue.h
 
 gdspeak_client_CFLAGS = $(GLIB_CFLAGS)
