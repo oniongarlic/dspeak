@@ -49,7 +49,8 @@ $(service_DATA): $(service_in_files) Makefile
 	sed -e "s|\@libexecdir\@|$(libexecdir)|" $< > $@
 
 gdspeak-marshal.c: gdspeak-marshal.list
-	glib-genmarshal --prefix _gdspeak --body $< > $@
+	echo "#include \"gdspeak-marshal.h\"" > $@
+	glib-genmarshal --prefix _gdspeak --body $< >> $@
 
 gdspeak-marshal.h: gdspeak-marshal.list
-	glib-genmarshal --prefix _gdspeak --header $< > $@
+	glib-genmarshal --internal --prefix _gdspeak --header $< > $@
