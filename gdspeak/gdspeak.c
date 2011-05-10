@@ -305,8 +305,8 @@ gst_app_src_set_size(GST_APP_SRC(p->ge.src), -1);
 gst_app_src_set_stream_type(GST_APP_SRC(p->ge.src), GST_APP_STREAM_TYPE_STREAM);
 g_object_set(GST_APP_SRC(p->ge.src), "block", TRUE, NULL);
 g_object_set(GST_APP_SRC(p->ge.src), "is-live", TRUE, NULL);
-gst_app_src_set_size(p->ge.src, -1);
-gst_app_src_set_max_bytes(p->ge.src, 2048);
+gst_app_src_set_size(GST_APP_SRC(p->ge.src), -1);
+gst_app_src_set_max_bytes(GST_APP_SRC(p->ge.src), 2048);
 #endif
 
 p->ge.srccaps=gst_caps_new_simple("audio/x-raw-int",
@@ -831,7 +831,7 @@ if (G_UNLIKELY(p->id==0))
 	p->id=1;
 
 s=sentence_new(p->id++, txt);
-s->priority=CLAMP(priority,0,255);
+s->priority=CLAMP((gint)priority,0,255);
 
 s->sp.lang=NULL;
 if (lang && g_hash_table_lookup(p->voices, lang)!=NULL)
