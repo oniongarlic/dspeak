@@ -116,7 +116,7 @@ if (g_hash_table_lookup_extended(voices, lcm, NULL, NULL)==FALSE) {
 g_debug("New default language: %s", lcm);
 gdspeak_set_default_voice(GDSPEAK(ds), lcm);
 g_free(lcm);
-} 
+}
 
 gint
 main(gint argc, gchar **argv)
