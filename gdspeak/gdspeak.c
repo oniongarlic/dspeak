@@ -88,6 +88,7 @@ struct _GstEspeak {
 	GstElement *queue;
 	GstElement *sink;
 	GstBus *bus;
+	GstState state;
 	gboolean eos;
 	gboolean speaking;
 	gshort *buffer;
@@ -253,13 +254,15 @@ g_assert(p);
 switch (GST_MESSAGE_TYPE(msg)) {
 	case GST_MESSAGE_EOS:
 		g_debug("EOS from %s", GST_MESSAGE_SRC_NAME(msg));
+#if 0
 		gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
+#endif
 		p->ge.eos=TRUE;
 		g_timeout_add(100, (GSourceFunc)gdspeak_speak_next_sentence, p);
 	break;
 	case GST_MESSAGE_ERROR:
 		gst_message_parse_error(msg, &err, &debug);
-		g_debug("Error: %s", err->message);
+		g_warning("Error: %s", err->message);
 		g_free(debug);
 		g_error_free(err);
 		p->ge.eos=TRUE;
@@ -268,15 +271,17 @@ switch (GST_MESSAGE_TYPE(msg)) {
 	case GST_MESSAGE_STATE_CHANGED:
 		gst_message_parse_state_changed(msg, &oldstate, &newstate, &pending);
 
+		g_debug("GST: %s state changed (o=%d->n=%d => p=%d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
+
 		/* We are only interested in pipeline messages */
 		if (GST_MESSAGE_SRC(msg)!=GST_OBJECT(p->ge.pipeline))
 			return TRUE;
 
-		g_debug("GST: %s state changed (o=%d->n=%d => p=%d)", GST_MESSAGE_SRC_NAME(msg), oldstate, newstate, pending);
+		p->ge.state=newstate;
 
-		/* Pipe is going to play, we can start pushing buffers */
-		if (pending==GST_STATE_PLAYING) {
-			g_debug("PNS");
+		/* Pipe is going to playing next, we can start pushing buffers now */
+		if (newstate==GST_STATE_READY && pending==GST_STATE_PLAYING) {
+			g_debug("PendingNS idle cb");
 			p->ge.eos=FALSE;
 			g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 		}
@@ -292,6 +297,7 @@ static gboolean
 gst_espeak_create_pipeline(GdspeakPrivate *p)
 {
 p->ge.eos=TRUE;
+p->ge.state=GST_STATE_NULL;
 p->ge.pipeline=gst_pipeline_new("pipeline");
 g_return_val_if_fail(p->ge.pipeline, FALSE);
 
@@ -310,7 +316,7 @@ gst_app_src_set_max_bytes(GST_APP_SRC(p->ge.src), 2048);
 p->ge.srccaps=gst_caps_new_simple("audio/x-raw-int",
 			"depth", G_TYPE_INT, 16,
 			"width", G_TYPE_INT,  16,
-			"signed", G_TYPE_BOOLEAN, TRUE, 
+			"signed", G_TYPE_BOOLEAN, TRUE,
 			"rate", G_TYPE_INT, p->srate,
 			"channels", G_TYPE_INT, 1,
 			"endianness", G_TYPE_INT, G_LITTLE_ENDIAN, /* XXX: Check what espeak does on big endian */
@@ -373,7 +379,6 @@ GdspeakPrivate *p=data;
 
 g_assert(p);
 
-g_debug("PLAYING");
 p->ge.eos=FALSE;
 if (gst_element_set_state(p->ge.pipeline, GST_STATE_PLAYING)==GST_STATE_CHANGE_FAILURE)
 	g_warning("Failed to play pipeline");
@@ -388,7 +393,8 @@ gchar *data;
 
 g_debug("W: %d (%d)", wav==NULL ? 0 : 1, numsamples);
 
-if (wav==NULL && g_queue_is_empty(p->sentences)==TRUE) {
+if (wav==NULL) {
+	g_debug("Pushing EOS");
 #if GST_CHECK_VERSION(0,10,22)
 	if (gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src))!=GST_FLOW_OK) {
 		g_warning("Failed to push EOS");
@@ -397,9 +403,6 @@ if (wav==NULL && g_queue_is_empty(p->sentences)==TRUE) {
 #else
 	gst_app_src_end_of_stream(GST_APP_SRC(p->ge.src));
 #endif
-	return;
-} else if (wav==NULL && g_queue_is_empty(p->sentences)==FALSE) {
-	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 	return;
 }
 
@@ -410,9 +413,12 @@ if (numsamples>0) {
 	data=g_memdup(wav, numsamples);
 	buf=gst_app_buffer_new(data, numsamples, gst_espeak_buffer_free, data);
 	gst_buffer_set_caps(buf, p->ge.srccaps);
+
+	g_warn_if_fail(!p->ge.eos);
+
 #if GST_CHECK_VERSION(0,10,22)
 	if ((fr=gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf))!=GST_FLOW_OK)
-		g_warning("Failed to push buffer: %d", fr);
+		g_warning("Failed to push buffer (s: %d): %d", p->ge.state, fr);
 #else
 	gst_app_src_push_buffer(GST_APP_SRC(p->ge.src), buf);
 #endif
@@ -427,7 +433,7 @@ if (numsamples>0) {
  * Callback to handle events from espeak. Will emit signals with the event information.
  *
  */
-static int 
+static int
 speak_synth_cb(short *wav, int numsamples, espeak_EVENT *events)
 {
 Gdspeak *ds;
@@ -476,8 +482,11 @@ for (e=events;e->type!=espeakEVENT_LIST_TERMINATED;e++) {
 	case espeakEVENT_MSG_TERMINATED:
 		g_debug("MT:");
 		g_signal_emit(G_OBJECT(ds), signals[SIGNAL_END], 0, e->unique_identifier, NULL);
+#ifndef WITH_GST
+		g_debug("Preparing next sentence");
 		if (g_queue_is_empty(p->sentences)==FALSE)
 			g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
+#endif
 	break;
 	case espeakEVENT_LIST_TERMINATED:
 		g_debug("LT:");
@@ -763,15 +772,21 @@ return TRUE;
 static gboolean
 gdspeak_speak_next_sentence(GdspeakPrivate *p)
 {
-g_debug("NS");
+GstState s;
+
+g_debug("NextSentence");
 
 #ifdef WITH_GST
-if (p->ge.eos==TRUE && g_queue_is_empty(p->sentences)==FALSE) {
+if (p->ge.eos==TRUE) {
+	g_debug("In EOS and queue empty, setting state to NULL");
 	gst_element_set_state(p->ge.pipeline, GST_STATE_NULL);
-	g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)gst_espeak_start_play, p, NULL);
-	return TRUE;
-} else if (p->ge.eos==TRUE)
+	p->ge.state=GST_STATE_NULL;
+	if  (g_queue_is_empty(p->sentences)==FALSE) {
+		p->ge.state=GST_STATE_READY; /* XXX fake it */
+		g_idle_add_full(G_PRIORITY_HIGH_IDLE, (GSourceFunc)gst_espeak_start_play, p, NULL);
+	}
 	return FALSE;
+}
 #endif
 
 p->cs=g_queue_pop_head(p->sentences);
@@ -779,6 +794,7 @@ if (!p->cs) {
 	g_debug("Queue is empty");
 	return FALSE;
 }
+
 if (p->cs->priority==0) {
 	g_debug("P0");
 	espeak_Cancel();
@@ -844,7 +860,8 @@ s->data=gs;
 
 gdspeak_push_sentence(p, s);
 #ifdef WITH_GST
-if (p->ge.eos==TRUE)
+g_debug("APS, state is %d", p->ge.state);
+if (p->ge.state==GST_STATE_NULL)
 	g_idle_add((GSourceFunc)gdspeak_speak_next_sentence, p);
 #else
 if (espeak_IsPlaying()!=1)
@@ -857,13 +874,13 @@ return s->id;
  * gdspeak_speak_priority:
  *
  * Speak given sentence with the given priority and the current speech settings.
- * The smaller the number the higher priority the sentece has. Priority 
- * 0 has the highest priority and will cancel any currently spoken 
+ * The smaller the number the higher priority the sentece has. Priority
+ * 0 has the highest priority and will cancel any currently spoken
  * sentece. The default priority is 100, and lowest is 255.
- * Priority 1 will always go at the top of the queue and 255 and then 
+ * Priority 1 will always go at the top of the queue and 255 and then
  * end.
  *
- * XXX: Implement queue length limiting. 
+ * XXX: Implement queue length limiting.
  *
  * Returns: Sentence id, larger than 0, zero on error.
  */
@@ -876,7 +893,7 @@ return gdspeak_speak_full(gs, txt, NULL, priority, -1, -1, -1, -1);
 /**
  * gdspeak_speak:
  *
- * Speak the given text, with default priority and the current speech 
+ * Speak the given text, with default priority and the current speech
  * settings. Does not return a  sentence tracking id, just TRUE or FALSE.
  *
  * Mainly for easy speech output when sentence tracking is not required.
