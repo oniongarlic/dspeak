@@ -42,7 +42,6 @@
 #include "gdspeak.h"
 
 #include "gdspeak-marshal.h"
-#include "gdspeak-server-glue.h"
 #define DEFAULT_VOICE "en"
 
 #define PITCH_MIN (0)
@@ -772,8 +771,6 @@ return TRUE;
 static gboolean
 gdspeak_speak_next_sentence(GdspeakPrivate *p)
 {
-GstState s;
-
 g_debug("NextSentence");
 
 #ifdef WITH_GST
