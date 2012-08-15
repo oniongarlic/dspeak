@@ -1,5 +1,5 @@
 AC_INIT()
-AM_INIT_AUTOMAKE([gdspeak], [0.0.1.902])
+AM_INIT_AUTOMAKE([gdspeak], [0.0.1.990])
 AM_MAINTAINER_MODE
 
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
